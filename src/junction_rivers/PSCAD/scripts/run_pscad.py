@@ -69,7 +69,7 @@ if __name__ == '__main__':
     parser.add_argument('-g', "--group", type=int, default=None)
     parser.add_argument('-v', "--volley-size", type=int, default=DEFAULT_VOLLEY)
     parser.add_argument('-s', "--spec-path", type=str, default=None)
-    parser.add_argument('-t', "--temp-dir", type=str, default="D:\\Temp")
+    parser.add_argument('-t', "--temp-dir", type=str, default="C:\\Temp")
     parser.add_argument('-r', "--results-dir", type=str, default=".\\results")
     parser.add_argument('-f', "--file-index", type=str, default=None, help="Accepts comma-separated list. Numbers correspond to excel index.")
     parser.add_argument('-w', '--work-partition', action=WorkerValidation, dest='worker_partition', help='Partitions Work. Use pattern \"worker_total:worker_id\". Where worker_total=2,3,4,5, and worker_id=1,..,worker_total')
@@ -82,16 +82,16 @@ if __name__ == '__main__':
 
     volley_size = args.volley_size
     
-    workspace_path = os.path.join(MODEL_PATH, "model/JRWF_WS.pswx")
-    tuning_file = os.path.join(MODEL_PATH,"model/Global_Substitutions/junction_rivers_gs.csv")
-    mapping_file = os.path.join(MODEL_PATH,"jrwf_testbench_mapping.json")
+    workspace_path = os.path.join(MODEL_PATH, "G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\model\JRWF_SMIB_V4.pswx")
+    tuning_file = os.path.join(MODEL_PATH,"G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\Global_Substitutions\jrwf_gs.csv")
+    mapping_file = os.path.join(MODEL_PATH,"G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\jrwf_testbench_mapping.json")
 
     std_script_title("run_pscad_simulation_script.py")
 
     file_paths = []
     if args.spec_path is None:
         print("Please Select Specs To Run:")
-        file_paths = prompt_for_multiple_filepaths(prompt_title="Select Spec Files.", initial_dir="D:\\grid_workspace\\junction_rivers\\specs\\GW_GFM_Option") #os.getcwd())
+        file_paths = prompt_for_multiple_filepaths(prompt_title="Select Spec Files.", initial_dir="G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5") #os.getcwd())
     else:
         file_paths = [args.spec_path]
     for file_path in file_paths:

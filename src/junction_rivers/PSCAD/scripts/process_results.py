@@ -10,13 +10,13 @@ from rengen.pscad import Psout
 from rengen.spec.spec import load_specs_from_csv
 from rengen.utils.time_utils import get_date_time_str
 
-from bungaban.analysis.analysis__csr_s5255_low_voltage_faults import per_scenario_analysis as s5255_low_voltage_fault_analysis
-from bungaban.analysis.analysis__csr_s5255_high_voltage_faults import per_scenario_analysis as s5255_high_voltage_fault_analysis
-from bungaban.analysis.analysis__csr_s52514_pref_step import s52514_pref_step_analysis
-from bungaban.analysis.analysis__csr_s5253_s5258_freq_dist import s5253_s5258_freq_dist_analysis
-from bungaban.analysis.signal_analysis import get_expected_fdroop_signal, get_expected_vdroop_signal
+from junction_rivers.analysis.analysis__csr_s5255_low_voltage_faults import per_scenario_analysis as s5255_low_voltage_fault_analysis
+from junction_rivers.analysis.analysis__csr_s5255_high_voltage_faults import per_scenario_analysis as s5255_high_voltage_fault_analysis
+from junction_rivers.analysis.analysis__csr_s52514_pref_step import s52514_pref_step_analysis
+from junction_rivers.analysis.analysis__csr_s5253_s5258_freq_dist import s5253_s5258_freq_dist_analysis
+from junction_rivers.analysis.signal_analysis import get_expected_fdroop_signal, get_expected_vdroop_signal
 
-from bungaban.plotting.BBWFPlotterV4 import BBWFPlotter
+from junction_rivers.plotting.BBWFPlotterV4 import BBWFPlotter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("process_results")
