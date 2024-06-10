@@ -59,8 +59,8 @@ def dataframe_from_gs_csv(tuning_file):
     # Read the CSV file into a DataFrame with the first row as header
     df = pd.read_csv(tuning_file, header=0)
 
-    # Apply the type conversion function to the 'value' column
-    df['Value'] = df['Value'].apply(convert_type)
+    # Apply the type conversion function to the ' Value ' column
+    df[' Value '] = df[' Value '].apply(convert_type)
     return df
 
 
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     parser.add_argument('-v', "--volley-size", type=int, default=DEFAULT_VOLLEY)
     parser.add_argument('-s', "--spec-path", type=str, default=None)
     parser.add_argument('-t', "--temp-dir", type=str, default="C:\\Temp")
-    parser.add_argument('-r', "--results-dir", type=str, default=".\\results")
+    parser.add_argument('-r', "--results-dir", type=str, default="G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\\results")
     parser.add_argument('-f', "--file-index", type=str, default=None, help="Accepts comma-separated list. Numbers correspond to excel index.")
     parser.add_argument('-w', '--work-partition', action=WorkerValidation, dest='worker_partition', help='Partitions Work. Use pattern \"worker_total:worker_id\". Where worker_total=2,3,4,5, and worker_id=1,..,worker_total')
     parser.add_argument('-m', "--missing-only", action='store_true', default=False, help="Given a results directory, only runs tests that do not currently exist.")
@@ -82,7 +82,7 @@ if __name__ == '__main__':
 
     volley_size = args.volley_size
     
-    workspace_path = os.path.join(MODEL_PATH, "G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\model\JRWF_SMIB_V4.pswx")
+    workspace_path = os.path.join(MODEL_PATH, "G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\model\JRWF_SMIB_Workspace.pswx")
     tuning_file = os.path.join(MODEL_PATH,"G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\Global_Substitutions\jrwf_gs.csv")
     mapping_file = os.path.join(MODEL_PATH,"G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\jrwf_testbench_mapping.json")
 
@@ -161,9 +161,9 @@ if __name__ == '__main__':
     pool.apply_async(process_results_single_thread, [output_spec_path, temp_results_dir, results_dir])
 
     print(f"Workspace_Path:{workspace_path}")
-    pscad, project = launch_pscad(workspace_path=workspace_path, project_name="JRWF_Project", copy_to_dir=temp_path)
+    pscad, project = launch_pscad(workspace_path=workspace_path, project_name="JRWF_SMIB", copy_to_dir=temp_path)
     tuning_df = dataframe_from_gs_csv(tuning_file)
-    tuning_dict = tuning_df.set_index('Name')['Value'].to_dict()
+    tuning_dict = tuning_df.set_index('Name ')[' Value '].to_dict()
     # Create a temporary file
     with tempfile.NamedTemporaryFile(delete=False, mode='w+') as temp_file:
         # Get the name of the temporary file
@@ -184,7 +184,7 @@ if __name__ == '__main__':
         results_dir=temp_results_dir,
         allow_existing_results_dir=True,
         output_spec_path=output_spec_path,
-        prioritised_column='Category',
+        prioritised_column=' Category ',
         quit_after=False,
     )
     

@@ -16,7 +16,7 @@ from junction_rivers.analysis.analysis__csr_s52514_pref_step import s52514_pref_
 from junction_rivers.analysis.analysis__csr_s5253_s5258_freq_dist import s5253_s5258_freq_dist_analysis
 from junction_rivers.analysis.signal_analysis import get_expected_fdroop_signal, get_expected_vdroop_signal
 
-from junction_rivers.plotting.BBWFPlotterV4 import BBWFPlotter
+from junction_rivers.plotting.JRWFPlotterV4 import JRWFPlotter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("process_results")
@@ -26,8 +26,8 @@ logger.setLevel(logging.INFO)
 def per_scenario_postprocessing(spec_dict: dict, df: pd.DataFrame):
     
     # Signals Added to Dataframe
-    df["POC_Pref_Fdroop_MW"] = get_expected_fdroop_signal(spec_dict, df)
-    df["Qref_droop_Ideal_MVAr"]= get_expected_vdroop_signal(spec_dict, df)
+    # df["POC_Pref_Fdroop_MW"] = get_expected_fdroop_signal(spec_dict, df)
+    # df["Qref_droop_Ideal_MVAr"]= get_expected_vdroop_signal(spec_dict, df)
        
     # Per Scenario Analysis Added to JSON File
     spec_dict["analysis"] = {}
@@ -103,13 +103,14 @@ def process_results(
     
     # Run Plotter Script
     logger.info("Plotting Results...")
+    print("### plotting started consider:" + pdf_path)
     plotter.plot_from_df_and_dict(
         df=df,
         spec_dict=spec_dict,
         pdf_path=pdf_path,
         png_path=png_path,
     )
-    
+    print("### plotting finished")
     # Save 
     with open(json_path, 'w') as json_file:
         json.dump(spec_dict,json_file, indent=2)
@@ -130,7 +131,7 @@ def process_results_single_thread(
     data_source_extension: str = ".psout",
 ):
     
-    plotter = BBWFPlotter()
+    plotter = JRWFPlotter()
     
     spec = None
     if not spec_path is None:
@@ -245,7 +246,7 @@ if __name__ == '__main__':
     delete_src_data = args.delete_src_data
     data_source_extension = args.data_source
     
-    plotter = BBWFPlotter()
+    plotter = JRWFPlotter()
     
     spec = None
     if not spec_path is None:
@@ -259,7 +260,7 @@ if __name__ == '__main__':
     # Results directory
     if spec_path is None:
         results_dir = os.path.join(results_dir,f"{get_date_time_str()}_results")
-    # print(f"\nResults Directory located at: \n   {results_dir}")
+    print(f"\nResults Directory located at: \n   {results_dir}")
     os.makedirs(results_dir,exist_ok=True)
 
     # Intermetiate temp results directory
