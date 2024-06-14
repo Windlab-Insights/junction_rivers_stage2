@@ -5,6 +5,7 @@ import time
 import argparse
 import json
 import pandas as pd
+from collections import OrderedDict
 from rengen.plotting.Plotter import Plotter
 from rengen.pscad import Psout
 from rengen.spec.spec import load_specs_from_csv
@@ -15,6 +16,7 @@ from junction_rivers.analysis.analysis__csr_s5255_high_voltage_faults import per
 from junction_rivers.analysis.analysis__csr_s52514_pref_step import s52514_pref_step_analysis
 from junction_rivers.analysis.analysis__csr_s5253_s5258_freq_dist import s5253_s5258_freq_dist_analysis
 from junction_rivers.analysis.signal_analysis import get_expected_fdroop_signal, get_expected_vdroop_signal
+from junction_rivers.Analysis import Analysis
 
 from junction_rivers.plotting.JRWFPlotterV4 import JRWFPlotter
 
@@ -69,14 +71,18 @@ def process_results(
     json_path: os.PathLike,
     secs_to_remove_from_traces: float,
     plotter: Plotter,
+    analysis: Analysis,
     delete_src_data: bool,
 ):
     
     # Load Results Dataframe
     logger.info(f"Reading: {src_data_path}")
     if ".psout" in src_data_path:
-        psout = Psout(src_data_path)
-        df = psout.to_df()
+        try:
+            psout = Psout(src_data_path)
+            df = psout.to_df()
+        except Exception as e:
+            print(f"### psout read failed {e}")
         
     elif ".pkl" in src_data_path:
         df = pd.read_pickle(src_data_path)
@@ -110,7 +116,12 @@ def process_results(
         pdf_path=pdf_path,
         png_path=png_path,
     )
-    print("### plotting finished")
+    
+    ## Add analysis info to data frame
+    try:
+        analysis.fdroop(spec_dict["substitutions"], spec_dict, df)
+    except Exception as e:
+        print(f'### fdroop Exception: {e}')
     # Save 
     with open(json_path, 'w') as json_file:
         json.dump(spec_dict,json_file, indent=2)
@@ -132,6 +143,7 @@ def process_results_single_thread(
 ):
     
     plotter = JRWFPlotter()
+    analysis = Analysis()
     
     spec = None
     if not spec_path is None:
@@ -160,6 +172,7 @@ def process_results_single_thread(
 
     # While searching for results to process
     searching = True
+    
     while searching:
         
         logger.info("Scanning for new results...")
@@ -198,15 +211,16 @@ def process_results_single_thread(
                         json_path,
                         secs_to_remove_from_traces,
                         plotter,
+                        analysis,
                         delete_src_data,
                     )
+                    
                     
                     # Remove study from study list if spec provided
                     if not spec is None:
                         while (relative_path,file_base_name) in study_list: 
                             study_list.remove((relative_path,file_base_name))
-                            
-        
+         
         # Stop searching after one iteration if no spec provided
         if spec_path is None:
             logger.info("Stop Searching")
@@ -220,6 +234,15 @@ def process_results_single_thread(
         # wait between searches 
         time.sleep(30)
         
+    ## Plot the fdroop results
+
+    fdroop_pdf_path = os.path.join(results_dir, "fdroop.pdf")
+    
+    try:
+        analysis.plot_fdroop(fdroop_pdf_path)
+    except Exception as e:
+        print(f"### fdroop Exceptin: {e}")
+            
     logger.warning("Exiting Process Results.")
 
 
@@ -247,6 +270,7 @@ if __name__ == '__main__':
     data_source_extension = args.data_source
     
     plotter = JRWFPlotter()
+    analysis = Analysis()
     
     spec = None
     if not spec_path is None:
@@ -313,6 +337,7 @@ if __name__ == '__main__':
                         json_path,
                         secs_to_remove_from_traces,
                         plotter,
+                        analysis,
                         delete_src_data,
                     ])
                     

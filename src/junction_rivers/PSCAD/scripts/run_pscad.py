@@ -19,7 +19,7 @@ from rengen.utils.os_utils import make_temp_directory, file_exists_beneath_direc
 from rengen.utils.time_utils import get_date_time_str
 
 MODEL_PATH = "."
-DEFAULT_VOLLEY = 8
+DEFAULT_VOLLEY = 1
 
 
 # Custom action class for validation
