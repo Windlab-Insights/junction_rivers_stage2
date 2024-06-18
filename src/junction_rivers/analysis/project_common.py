@@ -1,5 +1,5 @@
 import numpy as np
-from  bungaban.analysis import signal_analysis
+from  junction_rivers.analysis import signal_analysis
 
 
 def check_all_tx_settled(data):
