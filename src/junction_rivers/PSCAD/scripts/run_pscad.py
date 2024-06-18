@@ -81,7 +81,7 @@ if __name__ == '__main__':
     ic(args)
 
     volley_size = args.volley_size
-    
+    # TODO
     workspace_path = os.path.join(MODEL_PATH, "G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\model\JRWF_SMIB_Workspace.pswx")
     tuning_file = os.path.join(MODEL_PATH,"G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\Global_Substitutions\jrwf_gs.csv")
     mapping_file = os.path.join(MODEL_PATH,"G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\jrwf_testbench_mapping.json")

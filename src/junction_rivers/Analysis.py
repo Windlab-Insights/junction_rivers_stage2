@@ -39,7 +39,7 @@ class Analysis:
         analysis_map['Delta_Freq_During_Dist_Hz'] = (freq_during_disturbance_hz - 50)/50
         analysis_map['Delta_POC_P_During_Dist_MW'] = (poc_p_during_disturbance_mw - ppoc_target_mw)/150
         analysis_map['Delta_WTG_P_During_Dist_MW'] = (wtg_p_during_disturbance_mw - init_ppoc_wind_mw)/150
-        analysis_map['Delta_BESS_P_During_Dist_MW'] = (bess_p_during_disturbance_mw - init_ppoc_wind_mw)/150
+        analysis_map['Delta_BESS_P_During_Dist_MW'] = (bess_p_during_disturbance_mw - init_ppoc_bess_mw)/150
         
         self.fdroop_log = self.fdroop_log.append(other=pd.DataFrame([analysis_map]), ignore_index=True)
 
@@ -47,35 +47,69 @@ class Analysis:
 
     def plot_fdroop(self, pdf_path: Union[Path, str]):
         plt.clf()
-        fig = plt.figure()
-        ax_total = plt.subplot(2,1,1)
-        ax_delta = plt.subplot(2,1,2)
-        ax_total.set_title('Droop response')
-        ax_total.set_xlabel('Frequency (Hz)')
-        ax_total.set_ylabel('Active Power (MW)')
-        ax_delta.set_title('Droop response in per unit')
-        ax_delta.set_xlabel('Delta Frequency (pu)')
-        ax_delta.set_ylabel('Delta Active Power (pu)')
+        fig, axs = plt.subplots(2,2)
+        ax1 = axs[0,0]
+        ax2 = axs[0,1]
+        ax3 = axs[1,0]
+        ax4 = axs[1,1]
+        ax1.set_title('Droop response large scale')
+        ax1.set_xlabel('Frequency (Hz)')
+        ax1.set_ylabel('Active Power (MW)')
         
-        freq_during_disturbance_hz = self.fdroop_log['Freq_During_Dist_Hz']
-        poc_p_during_disturbance_mw = self.fdroop_log['POC_P_During_Dist_MW']
-        wtg_p_during_disturbance_mw = self.fdroop_log['WTG_P_During_Dist_MW']
-        bess_p_during_disturbance_mw = self.fdroop_log['BESS_P_During_Dist_MW']
+        ax2.set_title('Droop response in per unit large scale')
+        ax2.set_xlabel('Delta Frequency (pu)')
+        ax2.set_ylabel('Delta Active Power (pu)')
         
-        delta_freq_during_disturbance_hz = self.fdroop_log['Delta_Freq_During_Dist_Hz']
-        delta_poc_p_during_disturbance_mw = self.fdroop_log['Delta_POC_P_During_Dist_MW']
-        delta_wtg_p_during_disturbance_mw = self.fdroop_log['Delta_WTG_P_During_Dist_MW']
-        delta_bess_p_during_disturbance_mw = self.fdroop_log['Delta_BESS_P_During_Dist_MW']
+        ax3.set_title('Droop response small scale')
+        ax3.set_xlabel('Frequency (Hz)')
+        ax3.set_ylabel('Active Power (MW)')
         
-        ax_total.plot(freq_during_disturbance_hz, poc_p_during_disturbance_mw, 'r', ls='', marker='o', label='POC')
-        ax_total.plot(freq_during_disturbance_hz, wtg_p_during_disturbance_mw, 'b', ls='', marker='o', label='WT')
-        ax_total.plot(freq_during_disturbance_hz, bess_p_during_disturbance_mw, 'g', ls='', marker='o', label='BESS')
-        ax_total.legend(loc="upper left")
+        ax4.set_title('Droop response in per unit small scale')
+        ax4.set_xlabel('Delta Frequency (pu)')
+        ax4.set_ylabel('Delta Active Power (pu)')
         
-        ax_delta.plot(delta_freq_during_disturbance_hz, delta_poc_p_during_disturbance_mw,'r', ls='', marker='o', label='POC')
-        ax_delta.plot(delta_freq_during_disturbance_hz, delta_wtg_p_during_disturbance_mw, 'b', ls='', marker='o', label='WT')
-        ax_delta.plot(delta_freq_during_disturbance_hz, delta_bess_p_during_disturbance_mw, 'g', ls='', marker='o', label='BESS')
-        ax_total.legend(loc="upper left")
+        
+        fdroop_log_large = self.fdroop_log[(self.fdroop_log['Delta_Freq_During_Dist_Hz'] >= 0.004) | (self.fdroop_log['Delta_Freq_During_Dist_Hz'] <= -0.004)]
+        fdroop_log_small = self.fdroop_log[(self.fdroop_log['Delta_Freq_During_Dist_Hz'] <= 0.004) & (self.fdroop_log['Delta_Freq_During_Dist_Hz'] >= -0.004)]
+        
+        l_freq_during_disturbance_hz = fdroop_log_large['Freq_During_Dist_Hz']
+        l_poc_p_during_disturbance_mw = fdroop_log_large['POC_P_During_Dist_MW']
+        l_wtg_p_during_disturbance_mw = fdroop_log_large['WTG_P_During_Dist_MW']
+        l_bess_p_during_disturbance_mw = fdroop_log_large['BESS_P_During_Dist_MW']
+        
+        l_delta_freq_during_disturbance_hz = fdroop_log_large['Delta_Freq_During_Dist_Hz']
+        l_delta_poc_p_during_disturbance_mw = fdroop_log_large['Delta_POC_P_During_Dist_MW']
+        l_delta_wtg_p_during_disturbance_mw = fdroop_log_large['Delta_WTG_P_During_Dist_MW']
+        l_delta_bess_p_during_disturbance_mw = fdroop_log_large['Delta_BESS_P_During_Dist_MW']
+        
+        s_freq_during_disturbance_hz = fdroop_log_small['Freq_During_Dist_Hz']
+        s_poc_p_during_disturbance_mw = fdroop_log_small['POC_P_During_Dist_MW']
+        s_wtg_p_during_disturbance_mw = fdroop_log_small['WTG_P_During_Dist_MW']
+        s_bess_p_during_disturbance_mw = fdroop_log_small['BESS_P_During_Dist_MW']
+        
+        s_delta_freq_during_disturbance_hz = fdroop_log_small['Delta_Freq_During_Dist_Hz']
+        s_delta_poc_p_during_disturbance_mw = fdroop_log_small['Delta_POC_P_During_Dist_MW']
+        s_delta_wtg_p_during_disturbance_mw = fdroop_log_small['Delta_WTG_P_During_Dist_MW']
+        s_delta_bess_p_during_disturbance_mw = fdroop_log_small['Delta_BESS_P_During_Dist_MW']
+        
+        ax1.plot(l_freq_during_disturbance_hz, l_poc_p_during_disturbance_mw, 'r', ls='', marker='o', label='POC')
+        ax1.plot(l_freq_during_disturbance_hz, l_wtg_p_during_disturbance_mw, 'b', ls='', marker='o', label='WT')
+        ax1.plot(l_freq_during_disturbance_hz, l_bess_p_during_disturbance_mw, 'g', ls='', marker='o', label='BESS')
+        ax1.legend(loc="upper left")
+        
+        ax2.plot(l_delta_freq_during_disturbance_hz, l_delta_poc_p_during_disturbance_mw,'r', ls='', marker='o', label='POC')
+        ax2.plot(l_delta_freq_during_disturbance_hz, l_delta_wtg_p_during_disturbance_mw, 'b', ls='', marker='o', label='WT')
+        ax2.plot(l_delta_freq_during_disturbance_hz, l_delta_bess_p_during_disturbance_mw, 'g', ls='', marker='o', label='BESS')
+        
+        ax3.plot(s_freq_during_disturbance_hz, s_poc_p_during_disturbance_mw, 'r', ls='', marker='o', label='POC')
+        ax3.plot(s_freq_during_disturbance_hz, s_wtg_p_during_disturbance_mw, 'b', ls='', marker='o', label='WT')
+        ax3.plot(s_freq_during_disturbance_hz, s_bess_p_during_disturbance_mw, 'g', ls='', marker='o', label='BESS')
+        
+        ax4.plot(s_delta_freq_during_disturbance_hz, s_delta_poc_p_during_disturbance_mw,'r', ls='', marker='o', label='POC')
+        ax4.plot(s_delta_freq_during_disturbance_hz, s_delta_wtg_p_during_disturbance_mw, 'b', ls='', marker='o', label='WT')
+        ax4.plot(s_delta_freq_during_disturbance_hz, s_delta_bess_p_during_disturbance_mw, 'g', ls='', marker='o', label='BESS')
+        
+        
         fig.savefig(pdf_path)
         
         csv_path = pdf_path.replace(".pdf", ".csv")

@@ -18,7 +18,7 @@ from junction_rivers.analysis.analysis__csr_s5253_s5258_freq_dist import s5253_s
 from junction_rivers.analysis.signal_analysis import get_expected_fdroop_signal, get_expected_vdroop_signal
 from junction_rivers.Analysis import Analysis
 
-from junction_rivers.plotting.JRWFPlotterV4 import JRWFPlotter
+from junction_rivers.plotting.JRWFPlotterV2 import JRWFPlotter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("process_results")
@@ -110,12 +110,15 @@ def process_results(
     # Run Plotter Script
     logger.info("Plotting Results...")
     print("### plotting started consider:" + pdf_path)
-    plotter.plot_from_df_and_dict(
-        df=df,
-        spec_dict=spec_dict,
-        pdf_path=pdf_path,
-        png_path=png_path,
-    )
+    try:
+        plotter.plot_from_df_and_dict(
+            df=df,
+            spec_dict=spec_dict,
+            pdf_path=pdf_path,
+            png_path=png_path,
+        )
+    except Exception as e:
+        print("#####" + e)
     
     ## Add analysis info to data frame
     try:
