@@ -62,7 +62,7 @@ class JRWFPlotter(Plotter):
             png_path: Optional[Union[Path, str]] = None,
             pdf_path: Optional[Union[Path, str]] = None,
     ):
-        print("### marker 1")
+
         plt.clf()
         if PLOT_INIT:
             self.plot_start = 0
@@ -73,7 +73,7 @@ class JRWFPlotter(Plotter):
             self.plot_end = df["V_POC"].index[-1]
         except Exception as e:
             print(e)
-        print("### marker 11")
+
         # Balanced or Unbalanced Fault
         unbalanced = False
         if 'Fault_Type_v' in spec_dict:
@@ -86,12 +86,12 @@ class JRWFPlotter(Plotter):
             if fault_type_is_number and fault_type_numeric_value != 7:
                 unbalanced = True
                 
-        print("### marker 12")
+
         # Table Data
         default_table_data = [
             ['Project', "Junction Rivers Wind Farm"],
             ['Filename/Int. Ref.', f"{spec_dict['File_Name']}"],
-            ['SCR [MVA]', f"{spec_dict['Grid_SCR_v']}"],
+            ['SCR', f"{spec_dict['Grid_SCR_v']}"],
             ['X2R', f"{spec_dict['Grid_X2R_v']}"],
             ['Vpoc [.pu]', f"{spec_dict['Init_Vpoc_pu_v']:.4f}"],
             ['Qpoc [.pu]', f"{spec_dict['Init_Qpoc_pu_v']}"],
@@ -110,7 +110,7 @@ class JRWFPlotter(Plotter):
             ('Xf_Ohms', 'Xf'),
             ('Test_Profile', 'Test Profile'),
         ]
-        print("### marker 13")
+
         # Append Optional Tags to Table Data
         for col_name, label in optional_table_information:
             if col_name in spec_dict:
@@ -130,7 +130,7 @@ class JRWFPlotter(Plotter):
         else:
             number_of_rows = 6
             number_of_misc_plots = 5
-        print("### marker 2")
+
         # Page Size and Spacing
         fig1 = plt.figure(facecolor=PRIMARY_COLOUR)
         fig2 = plt.figure(facecolor=PRIMARY_COLOUR)
@@ -139,7 +139,7 @@ class JRWFPlotter(Plotter):
         fig2.set_size_inches(42 * cm, 29.7 * cm) 
         fig1.subplots_adjust(left=0.04, right=0.975, bottom=0.05, top=0.96, wspace=0.12, hspace=0.4)
         fig2.subplots_adjust(left=0.04, right=0.975, bottom=0.05, top=0.96, wspace=0.12, hspace=0.4)
-        print("### marker 3")
+
         # Construct Layout
         layout_main_1 = gridspec.GridSpec(1, 4, figure=fig1)
         layout_main_2 = gridspec.GridSpec(1, 4, figure=fig2)
@@ -153,28 +153,32 @@ class JRWFPlotter(Plotter):
         column_7 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_2[2])
         column_8 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_2[3])
         column_9 = gridspec.GridSpecFromSubplotSpec(number_of_misc_plots, 1, subplot_spec=column_8[:number_of_rows - 1])
-        print("### marker 4")
+
         # POC Axes
         ax_poc: List[plt.Axes] = []
-        ax_poc2: List[plt.Axes] = []
         for i in range(number_of_rows):
             ax_poc.append(fig1.add_subplot(column_1[i, -1]))
-            ax_poc2.append(fig2.add_subplot(column_5[i, -1]))
-        print("### marker 4")
+
         # WTG Axes
         ax_wtg: List[plt.Axes] = []
         ax_wtg_poi: List[plt.Axes] = []
         for i in range(number_of_rows):
             ax_wtg.append(fig1.add_subplot(column_2[i, -1]))
-            ax_wtg_poi.append(fig2.add_subplot(column_6[i, -1]))
+            ax_wtg_poi.append(fig2.add_subplot(column_5[i, -1]))
 
         # BESS Axes
         ax_bess: List[plt.Axes] = []
         ax_bess_poi: List[plt.Axes] = []
         for i in range(number_of_rows):
             ax_bess.append(fig1.add_subplot(column_3[i, -1]))
-            ax_bess_poi.append(fig2.add_subplot(column_7[i, -1]))
+            ax_bess_poi.append(fig2.add_subplot(column_6[i, -1]))
 
+        # V inst Axes
+        ax_vabc: List[plt.Axes] = []
+        for i in range(number_of_rows):
+            ax_vabc.append(fig2.add_subplot(column_7[i,-1]))
+        
+            
         # Table Axis
         ax_table = fig1.add_subplot(column_other[0:2, -1])
         ax_table2 = fig2.add_subplot(column_9[0:2, -1])
@@ -186,7 +190,7 @@ class JRWFPlotter(Plotter):
         if unbalanced:
             ax_neg_seq_current = fig1.add_subplot(column_other[-5, -1])
             n = 1
-        print("### marker 5")
+
         # ax_33kv_bus = fig1.add_subplot(column_other[3+n, -1])
         # ax_oltc = fig1.add_subplot(column_other[-4, -1])
         ax_brk = fig1.add_subplot(column_other[-4, -1])
@@ -199,17 +203,18 @@ class JRWFPlotter(Plotter):
         ax_wtg_frt2 = fig2.add_subplot(column_9[-2,-1])
         ax_bess_frt2 = fig2.add_subplot(column_9[-1,-1])
         ax_frequency2 = fig2.add_subplot(column_8[-1, -1])
-        print("### marker 6")
+
         # Column Titles
         ax_poc[0].set_title('POC', style='italic', fontsize='medium', loc='center', y=1.1, pad=5, color=AXIS_COLOUR)
         ax_wtg[0].set_title('WTG', style='italic', fontsize='medium', loc='center', y=1.1, pad=5, color=AXIS_COLOUR)
         ax_bess[0].set_title('BESS', style='italic', fontsize='medium', loc='center', y=1.1, pad=5, color=AXIS_COLOUR)
         ax_table.set_title('Test Parameters', style='italic', fontsize='medium', loc='center', y=1.04, pad=5, color=AXIS_COLOUR)
-        ax_poc2[0].set_title('POC', style='italic', fontsize='medium', loc='center', y=1.1, pad=5, color=AXIS_COLOUR)
+        
         ax_wtg_poi[0].set_title('WTG POI', style='italic', fontsize='medium', loc='center', y=1.1, pad=5, color=AXIS_COLOUR)
         ax_bess_poi[0].set_title('BESS POI', style='italic', fontsize='medium', loc='center', y=1.1, pad=5, color=AXIS_COLOUR)
+        ax_vabc[0].set_title('V inst', style='italic', fontsize='medium', loc='center', y=1.1, pad=5, color=AXIS_COLOUR)
         ax_table2.set_title('Test Parameters', style='italic', fontsize='medium', loc='center', y=1.04, pad=5, color=AXIS_COLOUR)
-        print("### marker 7")
+
         # Plot Table
         table_colour = np.empty_like(table_data, dtype='object')
         for i, _ in enumerate(table_colour):
@@ -217,7 +222,7 @@ class JRWFPlotter(Plotter):
 
         ax_table.table(cellText=table_data, cellLoc='left', loc='upper right', cellColours=table_colour)
         ax_table2.table(cellText=table_data, cellLoc='left', loc='upper right', cellColours=table_colour)
-        print("### marker 8")
+
         def set_table_edge_color(ax, color):
             table: Table
             for child in ax.get_children():
@@ -248,15 +253,7 @@ class JRWFPlotter(Plotter):
                         ('Pref', LW_REF, COL_REF, 1, pref_mw),
                         ('Ppoc', LW_NORM, COL_POC, 2, ppoc_mw), ],
                 min_y_range=40,
-            )
-            self.signal_plot(
-                ax=ax_poc2[0],
-                title='POC: P [MW]',
-                traces=[
-                        # ('Pref + Fdroop', LW_NORM, (0.1,0.7,0.1,0.6), 0, poc_fdroop_mw), 
-                        ('Pref', LW_REF, COL_REF, 1, pref_mw),
-                        ('Ppoc', LW_NORM, COL_POC, 2, ppoc_mw), ],
-                min_y_range=40,
+                time_axis_on=True,
             )
 
             # QPOC Plotting
@@ -268,18 +265,10 @@ class JRWFPlotter(Plotter):
                 title='POC: Q [MVAr]',
                 traces=[
                         # ('Qref + Vdroop', LW_REF, (0.1,0.7,0.1,0.6), 1, ideal_qref_mvar),
-                        ('Qref', LW_NORM, COL_POC, 1, qref_mvar),
+                        ('Qref', LW_REF, COL_REF, 1, qref_mvar),
                         ('Qpoc', LW_NORM, COL_POC, 2, qpoc_mvar), ],
                 min_y_range=20,
-            )
-            self.signal_plot(
-                ax=ax_poc2[1],
-                title='POC: Q [MVAr]',
-                traces=[
-                        # ('Qref + Vdroop', LW_REF, (0.1,0.7,0.1,0.6), 1, ideal_qref_mvar),
-                        ('Qref', LW_NORM, COL_POC, 1, qref_mvar),
-                        ('Qpoc', LW_NORM, COL_POC, 2, qpoc_mvar), ],
-                min_y_range=20,
+                time_axis_on=True,
             )
 
             # VPOC Plotting
@@ -290,14 +279,8 @@ class JRWFPlotter(Plotter):
                 title='POC: V [.pu]',
                 traces=[('Vref', LW_REF, COL_REF, 1, vref_pu),
                         ('Vpoc', LW_NORM, COL_POC, 2, vpoc_pu), ],
-                min_y_range=0.05
-            )
-            self.signal_plot(
-                ax=ax_poc2[2],
-                title='POC: V [.pu]',
-                traces=[('Vref', LW_REF, COL_REF, 1, vref_pu),
-                        ('Vpoc', LW_NORM, COL_POC, 2, vpoc_pu), ],
-                min_y_range=0.05
+                min_y_range=0.05,
+                time_axis_on=True,
             )
 
             if unbalanced:
@@ -308,6 +291,7 @@ class JRWFPlotter(Plotter):
                         title='POC Neg. Seq. Current: pu',
                         traces=[('POC', LW_NORM, COL_POC, 1, poc_i_neg_pu)],
                         min_y_range=0.1,
+                        time_axis_on=True,
                     )
                 except KeyError:
                     print("POC_I_neg_pu not found in psout/pkl.")
@@ -333,6 +317,7 @@ class JRWFPlotter(Plotter):
                         title='POC: Phase ' + phase + ' Voltage [.pu]',
                         traces=[('POC', LW_NORM, COL_POC, 1, signal)],
                         min_y_range=0.1,
+                        time_axis_on=True,
                     )
 
                     ymin, ymax = ax.get_ylim()
@@ -350,12 +335,7 @@ class JRWFPlotter(Plotter):
                 title='POC: Id [.pu]',
                 traces=[('POC', LW_NORM, COL_POC, 1, id_poc_pu)],
                 min_y_range=0.05,
-            )
-            self.signal_plot(
-                ax=ax_poc2[number_of_rows - 3],
-                title='POC: Id [.pu]',
-                traces=[('POC', LW_NORM, COL_POC, 1, id_poc_pu)],
-                min_y_range=0.05,
+                time_axis_on=True,
             )
 
             # POC Iq Plotting
@@ -365,25 +345,12 @@ class JRWFPlotter(Plotter):
                 title='POC: Iq [.pu]',
                 traces=[('POC', LW_NORM, COL_POC, 1, iq_poc_pu)],
                 min_y_range=0.05,
-            )
-            iq_poc_pu = df['iq_pos_POC'][self.plot_start:self.plot_end][::DECIMATE]
-            self.signal_plot(
-                ax=ax_poc2[number_of_rows - 2],
-                title='POC: Iq [.pu]',
-                traces=[('POC', LW_NORM, COL_POC, 1, iq_poc_pu)],
-                min_y_range=0.05,
+                time_axis_on=True,
             )
             
             # POC Angle Plotting
             self.signal_plot(
                 ax=ax_poc[-1],
-                title='POC: Angle [deg]',
-                traces=[("POC", LW_NORM, COL_POC, 1, df['Angle_POC'][self.plot_start:self.plot_end][::DECIMATE]), ],
-                min_y_range=3,
-                time_axis_on=True,
-            )
-            self.signal_plot(
-                ax=ax_poc2[-1],
                 title='POC: Angle [deg]',
                 traces=[("POC", LW_NORM, COL_POC, 1, df['Angle_POC'][self.plot_start:self.plot_end][::DECIMATE]), ],
                 min_y_range=3,
@@ -405,6 +372,107 @@ class JRWFPlotter(Plotter):
                 min_y_range=0.5,
                 time_axis_on=True,
             )
+            
+            print("### marker 1")
+            # va_poc = pd.DataFrame()
+            # vb_poc = pd.DataFrame()
+            # vc_poc = pd.DataFrame()
+            print("### marker 2 " + spec_dict["Grid_Hz_t"])
+            freq_step = json.loads(spec_dict["Grid_Hz_t"])
+            xrange = []
+            if len(freq_step) > 2:
+                freq_step = freq_step[1:-1]
+                for t_delta in freq_step:
+                    print("### marker 3 " + str(t_delta))
+                    print("### marker 4")
+                    cushion = 0.1
+                    t_delta_start = max(0,t_delta-cushion)
+                    t_delta_end = min(t_delta+cushion, self.plot_end-self.plot_start)
+                    xrange.append((t_delta_start, t_delta_end))
+                    # va_poc.append(df['Va_POC'][t_delta_start:t_delta_end])
+                    # vb_poc.append(df['Vb_POC'][t_delta_start:t_delta_end])
+                    # vc_poc.append(df['Vc_POC'][t_delta_start:t_delta_end])
+                    print("### marker 5")
+
+            
+            # POC Vabc Plotting
+            vabc_poc_traces = []
+            vabc_poc_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_POC'][self.plot_start:self.plot_end]))
+            vabc_poc_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_POC'][self.plot_start:self.plot_end]))
+            vabc_poc_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_POC'][self.plot_start:self.plot_end]))
+            print(f"xrange is {xrange}")
+            self.plot_Vabc(
+                outer_ax=ax_vabc[0],
+                fig = fig2,
+                xrange = xrange,
+                traces=vabc_poc_traces,
+                title='POC: Vabc [kV]',
+            )
+            
+            # WT POI Vabc Plotting
+            vabc_poi_wt_traces = []
+            vabc_poi_wt_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_POI_WT'][self.plot_start:self.plot_end][::DECIMATE]))
+            vabc_poi_wt_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_POI_WT'][self.plot_start:self.plot_end][::DECIMATE]))
+            vabc_poi_wt_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_POI_WT'][self.plot_start:self.plot_end][::DECIMATE]))
+            self.signal_plot(
+                ax=ax_vabc[1],
+                title='POI WT: Vabc [kV]',
+                traces=vabc_poi_wt_traces,
+                min_y_range=0.05,
+                time_axis_on=True,
+            )
+            
+            # BESS POI Vabc Plotting
+            vabc_poi_bess_traces = []
+            vabc_poi_bess_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_POI_BESS'][self.plot_start:self.plot_end][::DECIMATE]))
+            vabc_poi_bess_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_POI_BESS'][self.plot_start:self.plot_end][::DECIMATE]))
+            vabc_poi_bess_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_POI_BESS'][self.plot_start:self.plot_end][::DECIMATE]))
+            self.signal_plot(
+                ax=ax_vabc[2],
+                title='POI BESS: Vabc [kV]',
+                traces=vabc_poi_bess_traces,
+                min_y_range=0.05,
+                time_axis_on=True,
+            )
+            
+            # WT1 Terminal Vabc Plotting
+            vabc_wt1_traces = []
+            vabc_wt1_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_term1'][self.plot_start:self.plot_end][::DECIMATE]))
+            vabc_wt1_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_term1'][self.plot_start:self.plot_end][::DECIMATE]))
+            vabc_wt1_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_term1'][self.plot_start:self.plot_end][::DECIMATE]))
+            self.signal_plot(
+                ax=ax_vabc[3],
+                title='WT1 terminal: Vabc [kV]',
+                traces=vabc_wt1_traces,
+                min_y_range=0.05,
+                time_axis_on=True,
+            )
+            
+            # WT2 Terminal Vabc Plotting
+            vabc_wt2_traces = []
+            vabc_wt2_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_term2'][self.plot_start:self.plot_end][::DECIMATE]))
+            vabc_wt2_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_term2'][self.plot_start:self.plot_end][::DECIMATE]))
+            vabc_wt2_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_term2'][self.plot_start:self.plot_end][::DECIMATE]))
+            self.signal_plot(
+                ax=ax_vabc[4],
+                title='WT2 terminal: Vabc [kV]',
+                traces=vabc_wt2_traces,
+                min_y_range=0.05,
+                time_axis_on=True,
+            )
+            
+            # BESS Terminal Vabc Plotting
+            vabc_bess_traces = []
+            vabc_bess_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_term3'][self.plot_start:self.plot_end][::DECIMATE]))
+            vabc_bess_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_term3'][self.plot_start:self.plot_end][::DECIMATE]))
+            vabc_bess_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_term3'][self.plot_start:self.plot_end][::DECIMATE]))
+            self.signal_plot(
+                ax=ax_vabc[5],
+                title='BESS terminal: Vabc [kV]',
+                traces=vabc_bess_traces,
+                min_y_range=0.05,
+                time_axis_on=True,
+            )
                 
             # FRT and Trip plots
             traces = []
@@ -424,13 +492,15 @@ class JRWFPlotter(Plotter):
                 ax=ax_wtg_frt,
                 title='WTG FRT and Trip Flags',
                 traces=traces,
-                min_y_range=3,        )
+                min_y_range=3,
+                time_axis_on=True,)
             
             self.signal_plot(
                 ax=ax_wtg_frt2,
                 title='WTG FRT and Trip Flags',
                 traces=traces,
-                min_y_range=3,        )
+                min_y_range=3,
+                time_axis_on=True,)
             
             
             traces = []
@@ -450,12 +520,14 @@ class JRWFPlotter(Plotter):
                 title='BESS FRT and Trip Flags',
                 traces=traces,
                 min_y_range=3,
+                time_axis_on=True,
             )
             self.signal_plot(
                 ax=ax_bess_frt2,
                 title='BESS FRT and Trip Flags',
                 traces=traces,
                 min_y_range=3,
+                time_axis_on=True,
             )
             
             # Tap position
@@ -466,12 +538,14 @@ class JRWFPlotter(Plotter):
                 title='Tap Position',
                 traces=traces,
                 min_y_range=3,
+                time_axis_on=True,
             )
             self.signal_plot(
                 ax=ax_tap_pos2,
                 title='Tap Position',
                 traces=traces,
                 min_y_range=3,
+                time_axis_on=True,
             )
             
             # Breakers
@@ -485,48 +559,55 @@ class JRWFPlotter(Plotter):
                 title='Breaker Position',
                 traces=brk_traces,
                 min_y_range=3,
+                time_axis_on=True,
             )
             self.signal_plot(
                 ax=ax_brk2,
                 title='Breaker Position',
                 traces=brk_traces,
                 min_y_range=3,
+                time_axis_on=True,
             )
 
             # WTG P Plotting
             wtg_p_traces=[]
-            wtg_p_traces.append(('Pord', LW_REF, COL_REF, 1, df['P_ord_term1'][self.plot_start:self.plot_end][::DECIMATE]))
-            wtg_p_traces.append(("W1", LW_NORM, COL_SIG_2, 2, df[f'P_term1_Unit'][self.plot_start:self.plot_end][::DECIMATE]))
-            wtg_p_traces.append(("W2", LW_NORM, COL_SIG_3, 3, df[f'P_term2_Unit'][self.plot_start:self.plot_end][::DECIMATE]))
+            wtg_p_traces.append(('Pord1', LW_REF, COL_REF, 1, df['P_ord_term1_agg'][self.plot_start:self.plot_end][::DECIMATE]))
+            wtg_p_traces.append(('Pord2', LW_REF, COL_SIG_1, 2, df['P_ord_term2_agg'][self.plot_start:self.plot_end][::DECIMATE]))
+            wtg_p_traces.append(("W1", LW_NORM, COL_SIG_2, 3, df[f'P_term1'][self.plot_start:self.plot_end][::DECIMATE]))
+            wtg_p_traces.append(("W2", LW_NORM, COL_SIG_3, 4, df[f'P_term2'][self.plot_start:self.plot_end][::DECIMATE]))
             self.signal_plot(
                 ax=ax_wtg[0],
                 title='WTG: P [MW]',
                 traces=wtg_p_traces,
                 min_y_range=1,
+                time_axis_on=True,
             )
             
             #WTG POI P Plotting
             wtg_poi_p_traces=[]
-            wtg_p_traces.append(('Pref', LW_REF, COL_REF, 1, df['P_set_WT'][self.plot_start:self.plot_end][::DECIMATE]))
+            wtg_poi_p_traces.append(('Pref', LW_REF, COL_REF, 1, df['P_set_WT'][self.plot_start:self.plot_end][::DECIMATE]))
             wtg_poi_p_traces.append(('POI', LW_REF, COL_POI, 2, df['P_POI_WT'][self.plot_start:self.plot_end][::DECIMATE]),)
             self.signal_plot(
                 ax=ax_wtg_poi[0],
                 title='WTG POI: P [MW]',
                 traces=wtg_poi_p_traces,
                 min_y_range=1,
+                time_axis_on=True,
             )
 
             # WTG Q Plotting
             wtg_q_traces=[]
             # wtg_q_traces.append(('Qref', LW_REF, COL_REF, 20, df['WTG_Unit_Qset_MVAr:1'][self.plot_start:self.plot_end][::DECIMATE]),)
-            wtg_q_traces.append(("Qord", LW_NORM, COL_SIG_2, 1, df[f'Q_ord_term1'][self.plot_start:self.plot_end][::DECIMATE]))
-            wtg_q_traces.append(("W1", LW_NORM, COL_SIG_2, 1, df[f'Q_term1_Unit'][self.plot_start:self.plot_end][::DECIMATE]))
-            wtg_q_traces.append(("W2", LW_NORM, COL_SIG_3, 2, df[f'Q_term2_Unit'][self.plot_start:self.plot_end][::DECIMATE]))
+            wtg_q_traces.append(("Qord1", LW_NORM, COL_REF, 1, df[f'Q_ord_term1_agg'][self.plot_start:self.plot_end][::DECIMATE]))
+            wtg_q_traces.append(("Qord2", LW_NORM, COL_SIG_1, 1, df[f'Q_ord_term2_agg'][self.plot_start:self.plot_end][::DECIMATE]))
+            wtg_q_traces.append(("W1", LW_NORM, COL_SIG_2, 1, df[f'Q_term1'][self.plot_start:self.plot_end][::DECIMATE]))
+            wtg_q_traces.append(("W2", LW_NORM, COL_SIG_3, 2, df[f'Q_term2'][self.plot_start:self.plot_end][::DECIMATE]))
             self.signal_plot(
                 ax=ax_wtg[1],
                 title='WTG: Q [MVAr]',
                 traces=wtg_q_traces,
                 min_y_range=1,
+                time_axis_on=True,
             )
             
             # WTG POI Q Plotting
@@ -538,6 +619,7 @@ class JRWFPlotter(Plotter):
                 title='WTG POI: Q [MVAr]',
                 traces=wtg_poi_q_traces,
                 min_y_range=1,
+                time_axis_on=True,
             )
 
             # WTG V Plotting
@@ -550,6 +632,7 @@ class JRWFPlotter(Plotter):
                 title='WTG Terminal: V [.pu]',
                 traces=wtg_v_traces,
                 min_y_range=0.05,
+                time_axis_on=True,
             )
             
             # WTG POI V Plotting
@@ -561,6 +644,7 @@ class JRWFPlotter(Plotter):
                 title='WTG POI: V [.pu]',
                 traces=wtg_poi_v_traces,
                 min_y_range=0.05,
+                time_axis_on=True,
             )
         except Exception as e:
             print(e)
@@ -591,6 +675,7 @@ class JRWFPlotter(Plotter):
                         title='WTG: Phase ' + phase + ' Voltage [.pu]',
                         traces=traces,
                         min_y_range=0.1,
+                        time_axis_on=True,
                     )
 
                     ymin, ymax = ax.get_ylim()
@@ -614,6 +699,7 @@ class JRWFPlotter(Plotter):
                 title='WTG: Id [.pu]',
                 traces=wtg_id_traces,
                 min_y_range=0.05,
+                time_axis_on=True,
             )
             
             # WTG POI Id Plotting
@@ -624,6 +710,7 @@ class JRWFPlotter(Plotter):
                 title='WTG POI: Id [.pu]',
                 traces=wtg_poi_id_traces,
                 min_y_range=0.05,
+                time_axis_on=True,
             )
 
             # WTG Iq Plotting
@@ -635,6 +722,7 @@ class JRWFPlotter(Plotter):
                 title='WTG: Iq [.pu]',
                 traces=wtg_iq_traces,
                 min_y_range=0.05,
+                time_axis_on=True,
             )
             
             # WTG POI Iq Plotting
@@ -645,6 +733,7 @@ class JRWFPlotter(Plotter):
                 title='WTG POI: Iq [.pu]',
                 traces=wtg_poi_iq_traces,
                 min_y_range=0.05,
+                time_axis_on=True,
             )
             
             # WTG Angle Plotting
@@ -679,6 +768,7 @@ class JRWFPlotter(Plotter):
                 title='BESS: P [MW]',
                 traces=bess_p_traces,
                 min_y_range=1,
+                time_axis_on=True,
             )
             
             # BESS POI P Plotting
@@ -690,6 +780,7 @@ class JRWFPlotter(Plotter):
                 title='BESS POI: P [MW]',
                 traces=bess_poi_p_traces,
                 min_y_range=1,
+                time_axis_on=True,
             )
 
             # BESS Q Plotting
@@ -701,6 +792,7 @@ class JRWFPlotter(Plotter):
                 title='BESS: Q [MVAr]',
                 traces=bess_q_traces,
                 min_y_range=1,
+                time_axis_on=True,
             )
             
             # BESS POI Q Plotting
@@ -712,6 +804,7 @@ class JRWFPlotter(Plotter):
                 title='BESS POI: Q [MVAr]',
                 traces=bess_poi_q_traces,
                 min_y_range=1,
+                time_axis_on=True,
             )
 
             # BESS V Plotting
@@ -723,6 +816,7 @@ class JRWFPlotter(Plotter):
                 title='BESS Terminal: V [.pu]',
                 traces=bess_v_traces,
                 min_y_range=0.05,
+                time_axis_on=True,
             )
             
             # BESS POI V Plotting
@@ -734,6 +828,7 @@ class JRWFPlotter(Plotter):
                 title='BESS POI: V [.pu]',
                 traces=bess_poi_v_traces,
                 min_y_range=0.05,
+                time_axis_on=True,
             )
 
             # BESS V ABC PHASE Plotting
@@ -760,6 +855,7 @@ class JRWFPlotter(Plotter):
                         start=plot_start,
                         duration=plot_duration,
                         min_y_range=0.1,
+                        time_axis_on=True,
                     )
 
                     ymin, ymax = ax.get_ylim()
@@ -778,6 +874,7 @@ class JRWFPlotter(Plotter):
                 title='BESS: Id [.pu]',
                 traces=bess_id_traces,
                 min_y_range=0.05,
+                time_axis_on=True,
             )
             
             # BESS POI Id Plotting
@@ -788,6 +885,7 @@ class JRWFPlotter(Plotter):
                 title='BESS POI: Id [.pu]',
                 traces=bess_poi_id_traces,
                 min_y_range=0.05,
+                time_axis_on=True,
             )
 
             # BESS Iq Plotting
@@ -798,6 +896,7 @@ class JRWFPlotter(Plotter):
                 title='BESS: Iq [.pu]',
                 traces=bess_iq_traces,
                 min_y_range=0.05,
+                time_axis_on=True,
             )
 
             # BESS POI Iq Plotting
@@ -808,6 +907,7 @@ class JRWFPlotter(Plotter):
                 title='BESS POI: Iq [.pu]',
                 traces=bess_poi_iq_traces,
                 min_y_range=0.05,
+                time_axis_on=True,
             )
            
             # BESS Angle Plotting
@@ -914,16 +1014,19 @@ class JRWFPlotter(Plotter):
         fig1.align_labels()
         fig2.align_labels()
         
-        with backend_pdf.PdfPages(pdf_path) as pdf:
-            pdf.savefig(fig1)
-            pdf.savefig(fig2)
-            print("### Plot saved to: "+ pdf_path)
+        pdf = backend_pdf.PdfPages(pdf_path)
+        
+        pdf.savefig(fig1)
+        pdf.savefig(fig2)
+        print("### Plot saved to: "+ pdf_path)
+        
+        pdf.close()
         
         png_path1 = png_path.replace(".png", "_1.png")
         png_path2 = png_path.replace(".png", "_2.png")
         fig1.savefig(png_path1, bbox_inches='tight', dpi=300, format='png')
         fig2.savefig(png_path2, bbox_inches='tight', dpi=300, format='png')
-        print("### Plot saved to: "+ png_path1 + "and" + png_path2)
+        print("### Plot saved to: "+ png_path1 + " and " + png_path2)
         
         plt.cla() 
         fig1.clf()
@@ -973,6 +1076,7 @@ class JRWFPlotter(Plotter):
 
         # X-Axis Propertie:
         ax.set_xlim(0, self.plot_duration)
+            
         #  Creates a XMajor Loactor that attempts to place
         xmajor_locator = matplotlib.ticker.MaxNLocator(nbins=5, steps=[1, 2, 4, 5, 10])
         major_xticks_values = xmajor_locator.tick_values(0, self.plot_duration)
@@ -1028,7 +1132,7 @@ class JRWFPlotter(Plotter):
         # Only ad legend if there are labels.
         _, tmplables = ax.get_legend_handles_labels()
         if tmplables and legendon:
-            ax.legend(frameon=False, fontsize='x-small', bbox_to_anchor=(1.0, 0.0), ncol=6,
+            ax.legend(frameon=False, fontsize='x-small', loc="lower right", bbox_to_anchor=(1.0, 0.0), ncol=6,
                     borderpad=0, columnspacing=1, handletextpad=0.3, handlelength=1.2, labelcolor=AXIS_COLOUR)
 
         ax.spines["bottom"].set_color(AXIS_COLOUR)
@@ -1041,7 +1145,7 @@ class JRWFPlotter(Plotter):
         
         
         if time_axis_on:
-            legendon = False
+            legendon = True
             xlabelson = True
         else:
             legendon = True
@@ -1063,8 +1167,93 @@ class JRWFPlotter(Plotter):
             self.configure_subplot(ax, title, legendon=legendon, xlabelson=xlabelson)
 
 
+### Plot Instantaneous Voltage over step changes
+    def plot_Vabc(self, outer_ax, xrange, fig, traces, title):
+        # create a subplot for each tuple in xrange
+        try:
+            print(f"### marker 6, {len(xrange)}")
+            subplots = gridspec.GridSpecFromSubplotSpec(1, len(xrange), subplot_spec=outer_ax)
+            outer_ax.axis("off")
+            print("### marker 7")
+            inner_ax: List[plt.Axes] = []
+            for i in range(len(xrange)):
+                print(f"### marker 8 {str(xrange[i])}, i = {i}")
+                xlim_l, xlim_h = xrange[i]
+                print("### marker 15 " + str(xlim_l) + ", " + str(xlim_h))
+                inner_ax.append(fig.add_subplot(subplots[-1,i]))
+                # inner_ax = plt.Subplot(fig, subplot[i])
+                print(f"### marker 9, size of traces: {len(traces)}")
+                for signal_label, lw, colour, order, signal in traces:
+                    print(f"### marker 10, signal label {signal_label}")
+                    inner_ax[-1].plot(signal.index - self.plot_start, signal.values, lw=lw, c=colour, zorder=order, label=signal_label)
+                inner_ax[-1].set_xlim(xlim_l, xlim_h)
+                print("### marker 10")
+                d=0.015
+                kwargs = dict(transform=inner_ax[-1].transAxes, color='k', clip_on=False)
+                print("### marker 11")
+                if len(xrange) > 1:
+                    if i == 0:
+                        print(f"### marker 31 i = {i}")
+                        inner_ax[-1].spines['right'].set_visible(False)
+                        #inner_ax[-1].yaxis.tick_left()
+                        inner_ax[-1].tick_params(axis='y', colors=AXIS_COLOUR, labelsize=7, direction='in', which='both')
+                        inner_ax[-1].plot((1-d, 1+d), (-d, +d), **kwargs)
+                        inner_ax[-1].plot((1-d, 1+d), (1-d, 1+d), **kwargs)
+                    elif i == len(xrange)-1:
+                        print(f"### marker 32 i = {i}")
+                        inner_ax[-1].spines['left'].set_visible(False)
+                        inner_ax[-1].tick_params(axis='y', which='both', left=False, right=False, labelleft=False, labelright=False)
+                        #inner_ax[-1].yaxis.tick_right()
+                        inner_ax[-1].plot((-d, +d), (1-d, 1+d), **kwargs)
+                        inner_ax[-1].plot((-d, +d), (-d, +d), **kwargs)
+                    else:
+                        print(f"### marker 33 i = {i}")
+                        inner_ax[-1].spines['right'].set_visible(False)
+                        inner_ax[-1].spines['left'].set_visible(False)
+                        inner_ax[-1].tick_params(axis='y', which='both', left=False, right=False, labelleft=False, labelright=False)
+                        #inner_ax[-1].yaxis.tick_right()
+                        inner_ax[-1].plot((1-d, 1+d), (-d, +d), **kwargs)
+                        inner_ax[-1].plot((1-d, 1+d), (1-d, 1+d), **kwargs)
+                        inner_ax[-1].plot((-d, +d), (1-d, 1+d), **kwargs)
+                        inner_ax[-1].plot((-d, +d), (-d, +d), **kwargs)
+                inner_ax[-1].set_axisbelow(True)
+                inner_ax[-1].grid(which='major', linestyle='--', linewidth=0.5, color='darkgray', alpha=0.8, zorder=-100)
+                inner_ax[-1].grid(which='minor', linestyle='--', linewidth=0.5, color='darkgray', alpha=0.4, zorder=-100)
+                inner_ax[-1].set_facecolor(SECONDARY_COLOUR)
+                    
+                inner_ax[-1].tick_params(axis='x', colors=AXIS_COLOUR, labelsize=7, direction='in', which='both')
 
+                #inner_ax[-1].tick_params(axis='y', colors=AXIS_COLOUR, labelsize=7, direction='in', which='both')
 
+                # Y - Axis.
+                inner_ax[-1].autoscale(enable=True, axis='y')
+                ymin, ymax = inner_ax[0].get_ylim()
+                inner_ax[-1].set_ylim(ymin, ymax)
+                # inner_ax[-1].locator_params(axis='y', nbins=5)
+                # Title
+                # ymin, ymax = inner_ax[-1].get_ylim()
+                # ax.text(0.0, ymax, subplot_title, fontsize='small', va='bottom', fontweight='normal')
+                # inner_ax[-1].set_title(subplot_title, fontsize='small', loc='left', fontweight='normal', y=1, pad=3, color=AXIS_COLOUR)
+
+                inner_ax[-1].spines["bottom"].set_color(AXIS_COLOUR)
+                inner_ax[-1].spines["top"].set_color(AXIS_COLOUR)
+            inner_ax[0].spines["left"].set_color(AXIS_COLOUR)
+            inner_ax[-1].spines["right"].set_color(AXIS_COLOUR)
+                
+            _, tmplables = inner_ax[-1].get_legend_handles_labels()
+            print(f"### marker 54: tmplables = {tmplables}")
+            if tmplables:
+                inner_ax[-1].legend(frameon=False, fontsize='x-small', loc="lower right", bbox_to_anchor=(1.0, 0.0), ncol=6,
+                        borderpad=0, columnspacing=1, handletextpad=0.3, handlelength=1.2, labelcolor=AXIS_COLOUR)
+            
+            print("### marker 12")
+        except Exception as e:
+            print(f"### Exception: {e}")
+
+        print("### marker 13")
+        return
+                
+        
     def read_flag_signal(self, flag_signal):
         """
         Description:

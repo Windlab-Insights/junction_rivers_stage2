@@ -10,6 +10,7 @@ from rengen.plotting.Plotter import Plotter
 from rengen.pscad import Psout
 from rengen.spec.spec import load_specs_from_csv
 from rengen.utils.time_utils import get_date_time_str
+from PyPDF2 import PdfWriter, PdfReader
 
 from junction_rivers.analysis.analysis__csr_s5255_low_voltage_faults import per_scenario_analysis as s5255_low_voltage_fault_analysis
 from junction_rivers.analysis.analysis__csr_s5255_high_voltage_faults import per_scenario_analysis as s5255_high_voltage_fault_analysis
@@ -117,6 +118,7 @@ def process_results(
             pdf_path=pdf_path,
             png_path=png_path,
         )
+        print("### marker 1")
     except Exception as e:
         print("#####" + e)
     
@@ -147,6 +149,7 @@ def process_results_single_thread(
     
     plotter = JRWFPlotter()
     analysis = Analysis()
+    pdf_writer = PdfWriter()
     
     spec = None
     if not spec_path is None:
@@ -162,6 +165,7 @@ def process_results_single_thread(
         results_dir = os.path.join(results_dir,f"{get_date_time_str()}_results")
     # print(f"\nResults Directory located at: \n   {results_dir}")
     os.makedirs(results_dir,exist_ok=True)
+    external_pdf_path = os.path.join(results_dir,"plot_summary.pdf")
 
     # Intermetiate temp results directory
     # print(f"\nTemp Results Directory located at: \n   {temp_results_dir}")
@@ -217,13 +221,17 @@ def process_results_single_thread(
                         analysis,
                         delete_src_data,
                     )
-                    
-                    
+                    print("### marker 2")
+                    # Appends to external results pdf
+                    internal_pdf_file = open(pdf_path, 'rb')
+                    print("### marker 22")
+                    pdf_writer.append(fileobj=internal_pdf_file, pages=(0,1))
+                    print("### marker 3")
                     # Remove study from study list if spec provided
                     if not spec is None:
                         while (relative_path,file_base_name) in study_list: 
                             study_list.remove((relative_path,file_base_name))
-         
+        print("### marker 4") 
         # Stop searching after one iteration if no spec provided
         if spec_path is None:
             logger.info("Stop Searching")
@@ -237,8 +245,13 @@ def process_results_single_thread(
         # wait between searches 
         time.sleep(30)
         
+    # Save and close the pdf writer
+    external_pdf = open(external_pdf_path, "wb")
+    pdf_writer.write(external_pdf)
+    pdf_writer.close()
+    external_pdf.close()
+    
     ## Plot the fdroop results
-
     fdroop_pdf_path = os.path.join(results_dir, "fdroop.pdf")
     
     try:
