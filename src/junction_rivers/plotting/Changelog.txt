@@ -1,0 +1,7 @@
+JRWFPlotterV1
+	- 13/06/2024: Copied from BBWFPlotterV4. Signal names changed and other adjustments to fit the junction rivers model. Can run with the JRWF PSCAD script. - Anke
+JRWFPlotterV2
+	-17/06/2024: Added code so that each plot had two pages, one which can be submitted and one with more signals which are useful internally. Used the matplotlib.backends.backend_pdf
+		library for this. It runs with the JRWF script. Further changes to the layout of the graphs. - Anke
+JRWFPlotterV3
+	-18/06/2024: Adding a feature so the "external results" get printed in a sperate folder as well as the one mentioned above. - Anke
