@@ -67,7 +67,7 @@ class JRWFPlotter(Plotter):
         if PLOT_INIT:
             self.plot_start = 0
         else:
-            self.plot_start = float(spec_dict["substitutions"]["TIME_Full_Init_Time_sec"])
+            self.plot_start = float(spec_dict["substitutions"]["Time_Full_Init_Time_sec"])
         try:
             self.plot_duration = df['V_POC'].index[-1] - self.plot_start
             self.plot_end = df["V_POC"].index[-1]
