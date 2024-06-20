@@ -15,6 +15,7 @@ from PyPDF2 import PdfWriter, PdfReader
 from junction_rivers.analysis.analysis__csr_s5255_low_voltage_faults import per_scenario_analysis as s5255_low_voltage_fault_analysis
 from junction_rivers.analysis.analysis__csr_s5255_high_voltage_faults import per_scenario_analysis as s5255_high_voltage_fault_analysis
 from junction_rivers.analysis.analysis__csr_s52514_pref_step import s52514_pref_step_analysis
+from rengen.utils.gui_utils import prompt_for_multiple_filepaths, prompt_for_directory_path, std_script_title
 from junction_rivers.analysis.analysis__csr_s5253_s5258_freq_dist import s5253_s5258_freq_dist_analysis
 from junction_rivers.analysis.signal_analysis import get_expected_fdroop_signal, get_expected_vdroop_signal
 from junction_rivers.Analysis import Analysis
@@ -118,7 +119,7 @@ def process_results(
             pdf_path=pdf_path,
             png_path=png_path,
         )
-        print("### marker 1")
+        print("### marker 1: tried plot_from_df_and_dict")
     except Exception as e:
         print("#####" + e)
     
@@ -221,7 +222,7 @@ def process_results_single_thread(
                         analysis,
                         delete_src_data,
                     )
-                    print("### marker 2")
+                    print("### marker 2: Processing results")
                     # Appends to external results pdf
                     internal_pdf_file = open(pdf_path, 'rb')
                     print("### marker 22")
@@ -267,19 +268,29 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', "--output-spec-path", type=str, default=None)
-    parser.add_argument('-t', "--temp-results-dir", type=str, default=None)
+    parser.add_argument('-c', "--curr-results-dir", type=str, default=None)
     parser.add_argument('-r', "--results-dir", type=str, default=None)
     parser.add_argument('-p', "--processes", type=int, default=1, help="(number of processes for multiprocessing)")
     parser.add_argument('-k', "--secs-to-remove", type=float, default=0, help="(seconds removed from begining of stored pkl)")
     parser.add_argument('-d', "--delete-src-data", type=bool, default=False, help="(1 = delete source data, 0 = keep source data)")
-    parser.add_argument('-e', "--data-source", type=str, default=".psout",help="(.out or .pkl)")
+    parser.add_argument('-e', "--data-source", type=str, default=".pkl",help="(.out or .psout)")
     args = parser.parse_args()
 
     logger.info("Started: process_results.py")
     
-    spec_path = args.output_spec_path    
-    temp_results_dir = args.temp_results_dir
-    results_dir = args.results_dir
+    if args.curr_results_dir is None:
+        print("Please Select Current Results Directory:")
+        curr_results_dir = prompt_for_directory_path(prompt_title="Select Current Results Dir.", initial_dir="G:\\Junction_Rivers\\JRWF_PSCAD_Models") #os.getcwd())
+    else:
+        curr_results_dir = args.curr_results_dir
+        
+    if args.results_dir is None:
+        print("Please Select New Results Directory:")
+        results_dir = prompt_for_directory_path(prompt_title="Select Results Dir.", initial_dir="G:\\Junction_Rivers\\JRWF_PSCAD_Models") #os.getcwd())
+    else:
+        results_dir = args.results_dir
+        
+    spec_path = args.output_spec_path
     processes = args.processes
     secs_to_remove_from_traces = args.secs_to_remove
     delete_src_data = args.delete_src_data
@@ -304,8 +315,8 @@ if __name__ == '__main__':
     os.makedirs(results_dir,exist_ok=True)
 
     # Intermetiate temp results directory
-    # print(f"\nTemp Results Directory located at: \n   {temp_results_dir}")
-    os.makedirs(temp_results_dir,exist_ok=True)
+    # print(f"\nTemp Results Directory located at: \n   {curr_results_dir}")
+    os.makedirs(curr_results_dir,exist_ok=True)
     
     # List of sudies if spec is provided 
     study_list = []
@@ -321,7 +332,7 @@ if __name__ == '__main__':
     
         args = []
             
-        for root, dirs, files in os.walk(temp_results_dir):
+        for root, dirs, files in os.walk(curr_results_dir):
             
             for file in files:
                 
@@ -334,7 +345,7 @@ if __name__ == '__main__':
                     src_data_path = os.path.join(root, file_base_name + data_source_extension)
                     src_json_path = os.path.join(root, file_base_name + ".json")
                     
-                    relative_path = os.path.relpath(root, temp_results_dir)
+                    relative_path = os.path.relpath(root, curr_results_dir)
                     dst_results_dir = os.path.join(results_dir, relative_path)
                     os.makedirs(dst_results_dir, exist_ok=True)
                     

@@ -1,8 +1,8 @@
 import pandas as pd
 from collections import OrderedDict
-from  bungaban.analysis import signal_analysis
-from  bungaban.analysis.standard_mains import standard_analysis_main, find_filepath_beneath_dir
-from  bungaban.analysis.project_common import check_all_tx_settled, check_wtg_no_trip, check_bess_no_trip, check_wtg_no_hvrt, check_bess_no_frt, check_vmp_no_frt
+from  junction_rivers.analysis import signal_analysis
+from  junction_rivers.analysis.standard_mains import standard_analysis_main, find_filepath_beneath_dir
+from  junction_rivers.analysis.project_common import check_all_tx_settled, check_wtg_no_trip, check_bess_no_trip, check_wtg_no_hvrt, check_bess_no_frt, check_vmp_no_frt
 import numpy as np
 
 

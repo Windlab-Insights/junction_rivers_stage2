@@ -20,6 +20,7 @@ from rengen.utils.time_utils import get_date_time_str
 
 MODEL_PATH = "."
 DEFAULT_VOLLEY = 1
+PROJECT_NAME = "JRWF_SMIB"
 
 
 # Custom action class for validation
@@ -69,29 +70,37 @@ if __name__ == '__main__':
     parser.add_argument('-g', "--group", type=int, default=None)
     parser.add_argument('-v', "--volley-size", type=int, default=DEFAULT_VOLLEY)
     parser.add_argument('-s', "--spec-path", type=str, default=None)
-    parser.add_argument('-t', "--temp-dir", type=str, default="C:\\Temp")
-    parser.add_argument('-r', "--results-dir", type=str, default="G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\\results")
+    parser.add_argument('-t', "--temp-dir", type=str, default="D:\\Temp")
+    parser.add_argument('-r', "--results-dir", type=str, default=None)
     parser.add_argument('-f', "--file-index", type=str, default=None, help="Accepts comma-separated list. Numbers correspond to excel index.")
     parser.add_argument('-w', '--work-partition', action=WorkerValidation, dest='worker_partition', help='Partitions Work. Use pattern \"worker_total:worker_id\". Where worker_total=2,3,4,5, and worker_id=1,..,worker_total')
     parser.add_argument('-m', "--missing-only", action='store_true', default=False, help="Given a results directory, only runs tests that do not currently exist.")
     parser.add_argument("--store-init-traces", action='store_true', default=True, help="If set, the init. period will NOT be removed from the output traces.")
     parser.add_argument("--minimum-traces", action='store_true', default=False, help="If set, the only the minimum traces needed for the grid-plot will be stored in the pkl file.")
+    parser.add_argument("-p", '--model-path', required=True)
     args = parser.parse_args()
 
     ic(args)
 
     volley_size = args.volley_size
     # TODO
-    workspace_path = os.path.join(MODEL_PATH, "G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\model\JRWF_SMIB_Workspace.pswx")
-    tuning_file = os.path.join(MODEL_PATH,"G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\Global_Substitutions\jrwf_gs.csv")
-    mapping_file = os.path.join(MODEL_PATH,"G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5\jrwf_testbench_mapping.json")
+    
+    if args.model_path is None:
+        print("Please Select Desired OEM Model Path To Run:")
+        model_path = prompt_for_multiple_filepaths(prompt_title="Select Model Path", initial_dir="G:\Junction_Rivers\JRWF_PSCAD_Models")
+    else: 
+        model_path = args.model_path
+    
+    workspace_path = os.path.join(model_path, "model/JRWF_SMIB_Workspace.pswx")
+    tuning_file = os.path.join(model_path,"Global_Substitutions/jrwf_gs.csv")
+    mapping_file = os.path.join(model_path,"jrwf_testbench_mapping.json")
 
     std_script_title("run_pscad_simulation_script.py")
 
     file_paths = []
     if args.spec_path is None:
         print("Please Select Specs To Run:")
-        file_paths = prompt_for_multiple_filepaths(prompt_title="Select Spec Files.", initial_dir="G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5") #os.getcwd())
+        file_paths = prompt_for_multiple_filepaths(prompt_title="Select Spec Files.", initial_dir=model_path) #os.getcwd())
     else:
         file_paths = [args.spec_path]
     for file_path in file_paths:
@@ -108,10 +117,11 @@ if __name__ == '__main__':
 
     if args.results_dir is None:
         print("\nPlease Select Results Directory.")
-        results_base_dir = prompt_for_directory_path("Select Output/Results Directory", initial_dir=os.getcwd())
+        results_base_dir = prompt_for_directory_path("Select Output/Results Directory", initial_dir=model_path)
     else:
         results_base_dir = args.results_dir
-        
+    # os.makedirs(results_base_dir)
+    
     results_dir = os.path.join(results_base_dir,f"{get_date_time_str()}_results")
     print(f"\nResults Directory located at: \n   {results_dir}")
     os.makedirs(results_dir,exist_ok=True)
@@ -161,7 +171,7 @@ if __name__ == '__main__':
     pool.apply_async(process_results_single_thread, [output_spec_path, temp_results_dir, results_dir])
 
     print(f"Workspace_Path:{workspace_path}")
-    pscad, project = launch_pscad(workspace_path=workspace_path, project_name="JRWF_SMIB", copy_to_dir=temp_path)
+    pscad, project = launch_pscad(workspace_path=workspace_path, project_name=PROJECT_NAME, copy_to_dir=temp_path)
     tuning_df = dataframe_from_gs_csv(tuning_file)
     tuning_dict = tuning_df.set_index('Name ')[' Value '].to_dict()
     # Create a temporary file

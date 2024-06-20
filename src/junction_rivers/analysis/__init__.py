@@ -1,1 +1,1 @@
-from bungaban.analysis.signal_analysis import calc_settled_value
+from junction_rivers.analysis.signal_analysis import calc_settled_value
