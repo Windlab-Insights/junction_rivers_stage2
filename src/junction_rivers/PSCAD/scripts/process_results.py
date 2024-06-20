@@ -14,6 +14,7 @@ from rengen.utils.time_utils import get_date_time_str
 from junction_rivers.analysis.analysis__csr_s5255_low_voltage_faults import per_scenario_analysis as s5255_low_voltage_fault_analysis
 from junction_rivers.analysis.analysis__csr_s5255_high_voltage_faults import per_scenario_analysis as s5255_high_voltage_fault_analysis
 from junction_rivers.analysis.analysis__csr_s52514_pref_step import s52514_pref_step_analysis
+from rengen.utils.gui_utils import prompt_for_multiple_filepaths, prompt_for_directory_path, std_script_title
 from junction_rivers.analysis.analysis__csr_s5253_s5258_freq_dist import s5253_s5258_freq_dist_analysis
 from junction_rivers.analysis.signal_analysis import get_expected_fdroop_signal, get_expected_vdroop_signal
 from junction_rivers.Analysis import Analysis
@@ -264,9 +265,19 @@ if __name__ == '__main__':
 
     logger.info("Started: process_results.py")
     
-    spec_path = args.output_spec_path    
-    temp_results_dir = args.temp_results_dir
-    results_dir = args.results_dir
+    if args.temp_results_dir is None:
+        print("Please Select Temp Directory:")
+        temp_results_dir = prompt_for_directory_path(prompt_title="Select Temp Dir.", initial_dir="D:\\") #os.getcwd())
+    else:
+        temp_results_dir = args.temp_results_dir
+        
+    if args.results_dir is None:
+        print("Please Select Results Directory:")
+        results_dir = prompt_for_directory_path(prompt_title="Select Results Dir.", initial_dir="G:\\Junction_Rivers\\JRWF_PSCAD_Models") #os.getcwd())
+    else:
+        results_dir = args.results_dir
+        
+    spec_path = args.output_spec_path
     processes = args.processes
     secs_to_remove_from_traces = args.secs_to_remove
     delete_src_data = args.delete_src_data
