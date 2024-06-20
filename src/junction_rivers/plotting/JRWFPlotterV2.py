@@ -373,10 +373,6 @@ class JRWFPlotter(Plotter):
                 time_axis_on=True,
             )
             
-            print("### marker 1")
-            # va_poc = pd.DataFrame()
-            # vb_poc = pd.DataFrame()
-            # vc_poc = pd.DataFrame()
             print("### marker 2 " + spec_dict["Grid_Hz_t"])
             freq_step = json.loads(spec_dict["Grid_Hz_t"])
             xrange = []
@@ -389,9 +385,6 @@ class JRWFPlotter(Plotter):
                     t_delta_start = max(0,t_delta-cushion)
                     t_delta_end = min(t_delta+cushion, self.plot_end-self.plot_start)
                     xrange.append((t_delta_start, t_delta_end))
-                    # va_poc.append(df['Va_POC'][t_delta_start:t_delta_end])
-                    # vb_poc.append(df['Vb_POC'][t_delta_start:t_delta_end])
-                    # vc_poc.append(df['Vc_POC'][t_delta_start:t_delta_end])
                     print("### marker 5")
 
             
@@ -411,67 +404,67 @@ class JRWFPlotter(Plotter):
             
             # WT POI Vabc Plotting
             vabc_poi_wt_traces = []
-            vabc_poi_wt_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_POI_WT'][self.plot_start:self.plot_end][::DECIMATE]))
-            vabc_poi_wt_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_POI_WT'][self.plot_start:self.plot_end][::DECIMATE]))
-            vabc_poi_wt_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_POI_WT'][self.plot_start:self.plot_end][::DECIMATE]))
-            self.signal_plot(
-                ax=ax_vabc[1],
-                title='POI WT: Vabc [kV]',
+            vabc_poi_wt_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_POI_WT'][self.plot_start:self.plot_end]))
+            vabc_poi_wt_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_POI_WT'][self.plot_start:self.plot_end]))
+            vabc_poi_wt_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_POI_WT'][self.plot_start:self.plot_end]))
+            self.plot_Vabc(
+                outer_ax=ax_vabc[1],
+                fig = fig2,
+                xrange = xrange,
                 traces=vabc_poi_wt_traces,
-                min_y_range=0.05,
-                time_axis_on=True,
+                title='POI WT: Vabc [kV]',
             )
             
             # BESS POI Vabc Plotting
             vabc_poi_bess_traces = []
-            vabc_poi_bess_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_POI_BESS'][self.plot_start:self.plot_end][::DECIMATE]))
-            vabc_poi_bess_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_POI_BESS'][self.plot_start:self.plot_end][::DECIMATE]))
-            vabc_poi_bess_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_POI_BESS'][self.plot_start:self.plot_end][::DECIMATE]))
-            self.signal_plot(
-                ax=ax_vabc[2],
-                title='POI BESS: Vabc [kV]',
+            vabc_poi_bess_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_POI_BESS'][self.plot_start:self.plot_end]))
+            vabc_poi_bess_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_POI_BESS'][self.plot_start:self.plot_end]))
+            vabc_poi_bess_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_POI_BESS'][self.plot_start:self.plot_end]))
+            self.plot_Vabc(
+                outer_ax=ax_vabc[2],
+                fig = fig2,
+                xrange = xrange,
                 traces=vabc_poi_bess_traces,
-                min_y_range=0.05,
-                time_axis_on=True,
+                title='POI BESS: Vabc [kV]',
             )
             
             # WT1 Terminal Vabc Plotting
             vabc_wt1_traces = []
-            vabc_wt1_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_term1'][self.plot_start:self.plot_end][::DECIMATE]))
-            vabc_wt1_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_term1'][self.plot_start:self.plot_end][::DECIMATE]))
-            vabc_wt1_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_term1'][self.plot_start:self.plot_end][::DECIMATE]))
-            self.signal_plot(
-                ax=ax_vabc[3],
-                title='WT1 terminal: Vabc [kV]',
+            vabc_wt1_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_term1'][self.plot_start:self.plot_end]))
+            vabc_wt1_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_term1'][self.plot_start:self.plot_end]))
+            vabc_wt1_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_term1'][self.plot_start:self.plot_end]))
+            self.plot_Vabc(
+                outer_ax=ax_vabc[3],
+                fig = fig2,
+                xrange = xrange,
                 traces=vabc_wt1_traces,
-                min_y_range=0.05,
-                time_axis_on=True,
+                title='WT1: Vabc [kV]',
             )
             
             # WT2 Terminal Vabc Plotting
             vabc_wt2_traces = []
-            vabc_wt2_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_term2'][self.plot_start:self.plot_end][::DECIMATE]))
-            vabc_wt2_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_term2'][self.plot_start:self.plot_end][::DECIMATE]))
-            vabc_wt2_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_term2'][self.plot_start:self.plot_end][::DECIMATE]))
-            self.signal_plot(
-                ax=ax_vabc[4],
-                title='WT2 terminal: Vabc [kV]',
+            vabc_wt2_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_term2'][self.plot_start:self.plot_end]))
+            vabc_wt2_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_term2'][self.plot_start:self.plot_end]))
+            vabc_wt2_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_term2'][self.plot_start:self.plot_end]))
+            self.plot_Vabc(
+                outer_ax=ax_vabc[4],
+                fig = fig2,
+                xrange = xrange,
                 traces=vabc_wt2_traces,
-                min_y_range=0.05,
-                time_axis_on=True,
+                title='WT2: Vabc [kV]',
             )
             
             # BESS Terminal Vabc Plotting
             vabc_bess_traces = []
-            vabc_bess_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_term3'][self.plot_start:self.plot_end][::DECIMATE]))
-            vabc_bess_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_term3'][self.plot_start:self.plot_end][::DECIMATE]))
-            vabc_bess_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_term3'][self.plot_start:self.plot_end][::DECIMATE]))
-            self.signal_plot(
-                ax=ax_vabc[5],
-                title='BESS terminal: Vabc [kV]',
+            vabc_bess_traces.append(('a', LW_NORM, COL_SIG_1, 1, df['Va_term3'][self.plot_start:self.plot_end]))
+            vabc_bess_traces.append(('b', LW_NORM, COL_SIG_2, 1, df['Vb_term3'][self.plot_start:self.plot_end]))
+            vabc_bess_traces.append(('c', LW_NORM, COL_SIG_3, 1, df['Vc_term3'][self.plot_start:self.plot_end]))
+            self.plot_Vabc(
+                outer_ax=ax_vabc[5],
+                fig = fig2,
+                xrange = xrange,
                 traces=vabc_bess_traces,
-                min_y_range=0.05,
-                time_axis_on=True,
+                title='BESS: Vabc [kV]',
             )
                 
             # FRT and Trip plots
@@ -1239,6 +1232,8 @@ class JRWFPlotter(Plotter):
                 inner_ax[-1].spines["top"].set_color(AXIS_COLOUR)
             inner_ax[0].spines["left"].set_color(AXIS_COLOUR)
             inner_ax[-1].spines["right"].set_color(AXIS_COLOUR)
+
+            inner_ax[0].set_title(title, fontsize='small', loc='left', fontweight='normal', y=1, pad=3, color=AXIS_COLOUR)
                 
             _, tmplables = inner_ax[-1].get_legend_handles_labels()
             print(f"### marker 54: tmplables = {tmplables}")
