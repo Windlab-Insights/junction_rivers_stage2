@@ -25,6 +25,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("process_results")
 logger.setLevel(logging.INFO)
 
+ANALYSIS = 0
 
 def per_scenario_postprocessing(spec_dict: dict, df: pd.DataFrame):
     
@@ -110,7 +111,6 @@ def process_results(
     
     # Run Plotter Script
     logger.info("Plotting Results...")
-    print("### plotting started consider:" + pdf_path)
     try:
         plotter.plot_from_df_and_dict(
             df=df,
@@ -124,7 +124,8 @@ def process_results(
     
     ## Add analysis info to data frame
     try:
-        analysis.fdroop(spec_dict["substitutions"], spec_dict, df)
+        if ANALYSIS:
+            analysis.fdroop(spec_dict["substitutions"], spec_dict, df)
     except Exception as e:
         print(f'### fdroop Exception: {e}')
     # Save 
@@ -255,7 +256,8 @@ def process_results_single_thread(
     fdroop_pdf_path = os.path.join(results_dir, "fdroop.pdf")
     
     try:
-        analysis.plot_fdroop(fdroop_pdf_path)
+        if ANALYSIS:
+            analysis.plot_fdroop(fdroop_pdf_path)
     except Exception as e:
         print(f"### fdroop Exceptin: {e}")
             

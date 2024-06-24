@@ -373,19 +373,22 @@ class JRWFPlotter(Plotter):
                 time_axis_on=True,
             )
             
-            print("### marker 2 " + spec_dict["Grid_Hz_t"])
-            freq_step = json.loads(spec_dict["Grid_Hz_t"])
-            xrange = []
-            if len(freq_step) > 2:
-                freq_step = freq_step[1:-1]
-                for t_delta in freq_step:
-                    print("### marker 3 " + str(t_delta))
-                    print("### marker 4")
-                    cushion = 0.1
-                    t_delta_start = max(0,t_delta-cushion)
-                    t_delta_end = min(t_delta+cushion, self.plot_end-self.plot_start)
-                    xrange.append((t_delta_start, t_delta_end))
-                    print("### marker 5")
+            if "Grid_Hz_t" in spec_dict:
+                print("### marker 2 " + spec_dict["Grid_Hz_t"])
+                freq_step = json.loads(spec_dict["Grid_Hz_t"])
+                xrange = []
+                if len(freq_step) > 2:
+                    freq_step = freq_step[1:-1]
+                    for t_delta in freq_step:
+                        print("### marker 3 " + str(t_delta))
+                        print("### marker 4")
+                        cushion = 0.1
+                        t_delta_start = max(0,t_delta-cushion)
+                        t_delta_end = min(t_delta+cushion, self.plot_end-self.plot_start)
+                        xrange.append((t_delta_start, t_delta_end))
+                        print("### marker 5")
+            else:
+                xrange = [(0, self.plot_duration)]
 
             
             # POC Vabc Plotting
