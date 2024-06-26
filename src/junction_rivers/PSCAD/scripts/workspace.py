@@ -9,7 +9,8 @@ import matplotlib.backends.backend_pdf as backend_pdf
 import matplotlib.gridspec as gridspec
 from SpecGenerator import SpecGenerator
 import math
-
+import random
+from icecream import ic
 def calc_vslack_from_vpoc():
     vpoc = 0.9
     s_nom = 100
@@ -44,11 +45,6 @@ def calc_vpoc_from_vslack():
     return vpoc
     
 if __name__ == '__main__':
-    # vslack = calc_vslack_from_vpoc()
-    # # vslack =0
-    # vpoc = calc_vpoc_from_vslack()
-    # # vpoc = 0
-    # print(f"vslack = {vslack}, vpoc = {vpoc}")
     
     excel_input = "C:\grid_workspace\junction_rivers\src\junction_rivers\PSCAD\scripts\Config_test.xlsx"
     csv_output = "C:\Temp\csv_output.csv"

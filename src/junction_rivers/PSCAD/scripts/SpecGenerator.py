@@ -3,8 +3,14 @@ import json
 from typing import Dict
 import math
 from icecream import ic
+import random
 
-
+class CalcSheetError(Exception):
+    def __init__(self):
+        print(f"Calc Sheet Error")
+    
+    def __init__(self, input):
+        print(f"Calc Sheet Error: {input}")
 class SpecGenerator():
     
     HEADERS = [
@@ -63,12 +69,12 @@ class SpecGenerator():
                     
                     if row["Action"] =="Yes":
                         category_formated = index_cat.lower().replace(" ", "_")
-                        new_row = self.add_new_row(row)
-                        ic(new_row)
-                        new_row.update({'File_Name': f'{category_formated}_test_{row["Test"].replace("-","_")}'})
+                        new_row = dict()
+                        new_row.update({'File_Name': f'{category_formated}_test_{row["Test"]}'.replace("-","_")})
                         new_row.update({'DIR': category_formated})
                         new_row.update({'En_SMIB_init_v': 1})
                         new_row.update({'Infinite_Grid_v': 1})
+                        new_row.update(self.add_new_row(row))
                         ic(new_row)
                         spec_df = spec_df.append(new_row, ignore_index=True)
                         ic(spec_df)
@@ -78,7 +84,7 @@ class SpecGenerator():
         
 ################# ADD PARAMS FOR A TEST ################
 
-    def add_new_row(self, row):
+    def add_new_row(self, row: pd.DataFrame):
         ic('add_new_row')
         new_row=dict()
         ic(new_row)
@@ -92,10 +98,11 @@ class SpecGenerator():
         ic(new_row)
         new_row.update(self.add_freq_specs(row))
         ic(new_row)
+        new_row.update(self.add_fault_specs(row))
         
         return new_row
     
-    def add_file_info(self, row):
+    def add_file_info(self, row: pd.DataFrame):
         ic('add_file_info')
         row_sect = dict()
         row_sect =  {
@@ -108,7 +115,7 @@ class SpecGenerator():
         ic(row_sect)
         return row_sect
     
-    def add_v_specs(self, row):
+    def add_v_specs(self, row: pd.DataFrame):
         ic('add_v_specs')
         row_sect = dict()
         if 'Vgrid' in row:
@@ -120,19 +127,18 @@ class SpecGenerator():
             row_sect = {'Init_Vpoc_pu_v': row["Vpoc"],
                         'Vslack_pu_v': self.calc_vslack_from_vpoc(row)}
         else:
-            # TODO
-            print(f"## Throw an exception")
+            raise CalcSheetError
         ic(row_sect)
         return row_sect
     
-    def add_q_specs(self, row):
+    def add_q_specs(self, row: pd.DataFrame):
         ic('add_q_specs')
         row_sect = dict()
         row_sect = {'Init_Qpoc_pu_v': self.q_set}
         ic(row_sect)
         return row_sect
     
-    def add_p_specs(self, row, wf_state):
+    def add_p_specs(self, row: pd.DataFrame, wf_state: int):
         ic('add_p_specs')
         row_sect = dict()
         if 'Active Power (pu)' in row:
@@ -157,7 +163,7 @@ class SpecGenerator():
         ic(row_sect)
         return row_sect
     
-    def add_freq_specs(self, row):
+    def add_freq_specs(self, row: pd.DataFrame):
         ic('add_feq_specs')
         row_sect = dict()
         if 'Freq target' in row:
@@ -174,46 +180,124 @@ class SpecGenerator():
         ic(row_sect)
         return row_sect
     
-    def add_fault_specs(self, row):
+    def add_fault_specs(self, row: pd.DataFrame):
         ic("add_fault_specs")
         row_sect = dict()
-        if 'Fault type' in row:
+        if 'Apply Fault (s)' in row:
             if 'Fault Impedance' in row:
-                if 'Fault duration(s)' in row:
-                    if 'Apply Fault(s)' in row:
+                if 'Fault duration (s)' in row:
+                    if row["Fault duration (s)"].isnumeric():
+                        if 'Fault type' in row:
+                            row_sect = {'Init_Fault_MVA': self.calc_fault_level(row),
+                                        'Init_Fault_X_on_R': self.read_x2r(row),
+                                        'Fault_Type_v': self.get_fault_code(row["Fault type"]),
+                                        'Fault_Depth': self.calc_fault_voltage(row),
+                                        'Fault_Time': row["Apply Fault (s)"],
+                                        'Fault_Duration': row["Fault duration (s)"],
+                                        'Post_Fault_Duration': row["End Run (s)"] - row["Apply Fault (s)"] - row["Fault duration (s)"],
+                                        'Enable_Fault_Studies_v': 1,
+                                        'Fault_Strategy_v': 0,
+                                        'Fault_X2R_v': self.read_x2r(row),
+                                        'Fault_Timing_Signal_t': f'[0, {row["Apply Fault (s)"]}, {row["Apply Fault (s)"] + row["Fault duration (s)"]}',
+                                        'Fault_Timing_Signal_v': f'[0, 1, 0]',
+                                        'Ures_v': self.calc_fault_voltage(row)}
+                    elif row["Fault duration (s)"] in ["S1", "S2", "S3", "S4", "S5"]:
                         row_sect = {'Init_Fault_MVA': self.calc_fault_level(row),
                                     'Init_Fault_X_on_R': self.read_x2r(row),
-                                    'Fault_Type_v': self.get_fault_code(row["Fault type"]),
-                                    'Fault_Depth': 0,
-                                    'Fault_Time': row["Apply Fault(s)"],
-                                    'Fault_Duration': row["Fault duration(s)"],
-                                    'Post_Fault_Duration': row["End Run (s)"] - row["Apply Fault(s)"] - row["Fault duration(s)"],
-                                    'Enable_Fault_Studies_v': 1,
-                                    'Fault_Strategy_v': 0,
                                     'Fault_X2R_v': self.read_x2r(row),
-                                    'Fault_Timing_Signal_t': f'[0, {row["Apply Fault(s)"]}, {row["Apply Fault(s)"] + row["Fault duration(s)"]}',
-                                    'Fault_Timing_Signal_v': f'[0, 1, 0]',
-                                    'Ures_v': 0}
-                        
+                                    'Enable_Fault_Studies_v': 1,
+                                    'Fault_Strategy_v': 0,}
+                        row_sect.update(self.mfrt_seq(row))
+        ic(row_sect)                    
         return row_sect
         
 ##################### MORE TOOLS #######################
 
-    def generate_seq1(self,row):
-        row_sect = dict()
-        row_sect = {'Fault_Types': [self.get_fault_code(["3PHG", "3PHG", "3PHG", "2PHG", "2PHG", "2PHG"])],
-                    'Fault_Durations': [0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
-                    'Post_Fault_Durations': [0.15],
-                    'Fault_Zs_Multiplier': ,
-                    'Fault_Timing_Signal_t': ,
-                    'Fault_Timing_Signal_v': [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
-                    'Zf2Zs_v': ,
-                    'Zf2Zs_t': ,
-                    'Fault_ Type_t': ,
-                    'Fault_Type_v': }
+    def mfrt_seq(self, row: pd.DataFrame):
+        ic('mfrt_seq')
+        random.seed(1)
+        fault_info = []
+        fault_type_options = ["3PHG", "2PHG", "1PHG", "L-L"]
+        if row["Fault duration (s)"] == "S1":
+            fault_info = [("3PHG", 5, 0.1, 0.25),
+                        ("3PHG", 5.25, 0.1, 0.25),
+                        ("3PHG", 5.5, 0.1, 0.25),
+                        ("2PHG", 8, 0.1, 0.25),
+                        ("2PHG", 11, 0.1, 0.25),
+                        ("2PHG", 13, 0.1, 0.25)]
+            time = [13]
+            fault_duration = 0.1
+        else:
+            # From S5.2.5.5 consider up to 15 faults in up to 5 mins.
+            # Arbitrarily I decided to constrain it to between 5 and 15 faults in 2 to 5 mins.
+            min_no_faults = 5
+            max_no_faults = 15
+            max_time = 300
+            # Choose a ranom number of faults to apply between 5 and 15
+            no_faults = random.randint(min_no_faults, max_no_faults)
+            ic(no_faults)
+            # We can specify a minimum time between faults
+            min_time_between_faults = 0.1
+            # By using the integer random sampling method we can control the accuracy.
+            accuracy = 0.001
+            time_range = range(0, int(min(max_time, row["End Run (s)"])/accuracy), int(min_time_between_faults/accuracy))
+            ic(time_range)
+            time = random.sample(time_range, k=no_faults)
+            time.sort()
+            # Convert the list back to seconds.
+            time = [item*accuracy for item in time]
+            ic(time)
+            # Loop through each time step.
+            for i in range(len(time)):
+                fault_type = random.choice(fault_type_options)
+                next_time = int(row["End Run (s)"]) if i == len(time)-1 else time[i+1]
+                fault_duration = random.randrange(1, int((next_time-time[i])/accuracy), 1)*accuracy
+                fault_multiplier = random.randint(0, 5)
+                fault_info.append((fault_type, time[i], fault_duration, fault_multiplier))
+        row_sect = self.generate_mfrt(fault_info)
+        ic(row_sect)
+        row_sect['Post_Fault_Durations'].extend([row["End Run (s)"] - time[-1] - fault_duration])
+        ic(row_sect)
         return row_sect
     
-    def calc_ramp(self, row):
+    def generate_mfrt(self, fault_info: list):
+        ic('generate_mfrt')
+        row_sect = dict()
+        fault_types = []
+        fault_durations = []
+        post_fault_durations = []
+        fault_zs_multiplier = []
+        fault_timing_signal_v = [0]
+        fault_timing_signal_t = [0]
+        fault_times = []
+        
+        for index, (fault_type, fault_time, fault_duration, fault_impedence_multiplier) in enumerate(fault_info):
+
+            fault_types.append(self.get_fault_code(fault_type))
+            fault_durations.append(fault_duration)
+            ic(fault_durations)
+            if index > 0 and index < len(fault_info) - 1:
+                post_fault_durations.append(fault_time - fault_times[index-1] - fault_durations[index-1])
+            ic(post_fault_durations)
+            fault_zs_multiplier.append(fault_impedence_multiplier)
+            fault_timing_signal_t.extend([fault_time, fault_time+fault_duration])
+            fault_timing_signal_v.extend([1, 0])
+            fault_times.append(fault_time)
+            ic(fault_times)
+        
+        row_sect = {'Fault_Types': fault_types,
+                    'Fault_Durations': fault_durations,
+                    'Post_Fault_Durations': post_fault_durations,
+                    'Fault_Zs_Multiplier': fault_zs_multiplier,
+                    'Fault_Timing_Signal_t': fault_timing_signal_t,
+                    'Fault_Timing_Signal_v': fault_timing_signal_v,
+                    'Zf2Zs_t': fault_times,
+                    'Zf2Zs_v': fault_zs_multiplier,
+                    'Fault_ Type_t': fault_times,
+                    'Fault_Type_v': fault_types}    
+        return row_sect
+    
+    def calc_ramp(self, row: pd.DataFrame):
         ic('calc_ramp')
         d_freq = abs(row["Freq target"] - self.f_nom)
         d_t = d_freq/row["Freq ramp Hz/s"]
@@ -222,14 +306,30 @@ class SpecGenerator():
         
         
 ##################### FAULT CALCULATIONS #######################
-    def calc_fault_impedance(self, row):
-        if row["Fault Impedance"] == "Zf=0":
-            fault_impedance = 0
-        elif row["Fault Impedance"] == "Zf=Zs":
-            fault_impedance = self.calc_fault_impedance(row, 1)
+    def calc_fault_impedance(self, row: pd.DataFrame):
+        ic('calc_fault_impedance')
+        min_fault_impedance = 0.000000001
+        if row["Fault Impedance"].isnumeric():
+            fault_impedance = row["Fault Impedance"]
+        elif row["Fault Impedance"][0:3] =="Zf=":
+            if row["Fault Impedance"] == "Zf=0":
+                fault_impedance = min_fault_impedance
+            elif row["Fault Impedance"] == "Zf=Zs":
+                fault_impedance = self.calc_fault_impedance(row, 1)
+            else:
+                raise CalcSheetError
         return fault_impedance
     
-    def calc_fault_voltage(self,row):
+    # def calc_fault_multiplier(self, string: str):
+    #     multiplier = 0
+    #     if string == "Zf=0":
+    #         multiplier = 0
+    #     elif string == "Zf=Zs":
+    #         multiplier = 1
+    #     return multiplier
+    
+    def calc_fault_voltage(self, row: pd.DataFrame):
+        ic('calc_fault_voltage')
         Zf = self.calc_fault_impedance(row)
         (_, _, Zs) = self.calc_grid_impedence(row, 1)
         Udip = Zf/(Zs + Zf)
@@ -247,7 +347,8 @@ class SpecGenerator():
 # 9: phase A to C
 # 10: phase B to C
 # ##
-    def get_fault_code(self, code):
+    def get_fault_code(self, code: str):
+        ic('get_fault_code')
         fault_code = 0
         if code == "3PHG":
             fault_code = 7
@@ -260,43 +361,39 @@ class SpecGenerator():
         return fault_code
         
 ##################### CALCULATIONS #######################
-    def read_scr(self, row):
+    def read_scr(self, row: pd.DataFrame):
         ic("read_scr")
-        ic(row)
-        scr = row["SCR"]
+        scr = 0
+        if row["SCR"].isnumeric():
+            scr = row["SCR"]
+        elif row["SCR"] == "POC":
+            scr = json.loads(self.system_inf.loc["POC SCR"]["Var Val"])[1]
+        else:
+            raise CalcSheetError("Cannot identify SCR entry")
         ic(scr)
-        if scr.isnumeric():
-            return scr
-        elif scr == "POC":
-            ic(json.loads(self.system_inf.loc["POC SCR"]["Var Val"])[1])
-            return json.loads(self.system_inf.loc["POC SCR"]["Var Val"])[1]
-        else:
-            # TODO add exception
-            ic("error")
-            return json.loads(self.system_inf.loc["POC SCR"]["Var Val"])[1]
+        return scr
         
-    def read_x2r(self, row):
+        
+    def read_x2r(self, row: pd.DataFrame):
         ic("read_scr")
-        x2r = row["X/R"]
-        ic(x2r)
-        if x2r.isnumeric():
-            return x2r
-        elif x2r == "POC":
-            ic(self.system_inf.loc["POC XR ratio"]["Var Val"])
-            return self.system_inf.loc["POC XR ratio"]["Var Val"]
+        x2r = 0
+        if row["X/R"].isnumeric():
+            x2r = row["X/R"]
+        elif row["X/R"] == "POC":
+            x2r = self.system_inf.loc["POC XR ratio"]["Var Val"]
         else:
-            # TODO add exception
-            ic("error")
-            return self.system_inf.loc["POC XR ratio"]["Var Val"]
+            CalcSheetError("Cannot identify X/R entry")
+        ic(x2r)
+        return x2r
     
-    def calc_fault_level(self, row):
+    def calc_fault_level(self, row: pd.DataFrame):
         ic("calc_fault_level")
         scr = self.read_scr(row)
         fault_level = scr * self.p_nom
         ic(fault_level)
         return fault_level
     
-    def calc_grid_impedence(self, row, pu):
+    def calc_grid_impedence(self, row: pd.DataFrame, pu: bool):
         ic("calc_grid_impedence")
         x2r = self.read_x2r(row)
         fl = self.calc_fault_level(row)
@@ -319,7 +416,7 @@ class SpecGenerator():
         ic(l)
         return (r, x, z)
         
-    def calc_vslack_from_vpoc(self, row):
+    def calc_vslack_from_vpoc(self, row: pd.DataFrame):
         ic("calc_vslack_from_vpoc")
         vpoc = row["Vpoc"]
         ppoc = row["Active Power (pu)"]
@@ -329,7 +426,7 @@ class SpecGenerator():
         vslack = math.sqrt(vpoc**2 + spoc**2/vpoc**2*zgrid_pu**2 - 2*(ppoc*rgrid_pu + qpoc*xgrid_pu))
         return vslack
         
-    def calc_vpoc_from_vslack(self, row):
+    def calc_vpoc_from_vslack(self, row: pd.DataFrame):
         ic("calc_vpoc_from_vslack")
         vslack = row["Vgrid"]
         ppoc = row["Active Power (pu)"]
