@@ -118,7 +118,6 @@ def process_results(
             pdf_path=pdf_path,
             png_path=png_path,
         )
-        print("### marker 1")
     except Exception as e:
         print("#####" + e)
     
@@ -172,7 +171,7 @@ def process_results_single_thread(
     # print(f"\nTemp Results Directory located at: \n   {temp_results_dir}")
     os.makedirs(temp_results_dir,exist_ok=True)
     
-    # List of sudies if spec is provided 
+    # List of studies if spec is provided 
     study_list = []
     if spec_path:
         study_list = list(zip(list(spec["DIR"].values), list(spec["File_Name"].values)))
@@ -222,17 +221,13 @@ def process_results_single_thread(
                         analysis,
                         delete_src_data,
                     )
-                    print("### marker 2")
                     # Appends to external results pdf
                     internal_pdf_file = open(pdf_path, 'rb')
-                    print("### marker 22")
                     pdf_writer.append(fileobj=internal_pdf_file, pages=(0,1))
-                    print("### marker 3")
                     # Remove study from study list if spec provided
                     if not spec is None:
                         while (relative_path,file_base_name) in study_list: 
                             study_list.remove((relative_path,file_base_name))
-        print("### marker 4") 
         # Stop searching after one iteration if no spec provided
         if spec_path is None:
             logger.info("Stop Searching")
