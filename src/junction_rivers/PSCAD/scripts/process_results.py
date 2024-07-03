@@ -26,6 +26,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("process_results")
 logger.setLevel(logging.INFO)
 
+ANALYSIS = 0
 
 def per_scenario_postprocessing(spec_dict: dict, df: pd.DataFrame):
     
@@ -111,7 +112,6 @@ def process_results(
     
     # Run Plotter Script
     logger.info("Plotting Results...")
-    print("### plotting started consider:" + pdf_path)
     try:
         plotter.plot_from_df_and_dict(
             df=df,
@@ -119,13 +119,13 @@ def process_results(
             pdf_path=pdf_path,
             png_path=png_path,
         )
-        print("### marker 1: tried plot_from_df_and_dict")
     except Exception as e:
         print("#####" + e)
     
     ## Add analysis info to data frame
     try:
-        analysis.fdroop(spec_dict["substitutions"], spec_dict, df)
+        if ANALYSIS:
+            analysis.fdroop(spec_dict["substitutions"], spec_dict, df)
     except Exception as e:
         print(f'### fdroop Exception: {e}')
     # Save 
@@ -172,7 +172,7 @@ def process_results_single_thread(
     # print(f"\nTemp Results Directory located at: \n   {temp_results_dir}")
     os.makedirs(temp_results_dir,exist_ok=True)
     
-    # List of sudies if spec is provided 
+    # List of studies if spec is provided 
     study_list = []
     if spec_path:
         study_list = list(zip(list(spec["DIR"].values), list(spec["File_Name"].values)))
@@ -222,17 +222,13 @@ def process_results_single_thread(
                         analysis,
                         delete_src_data,
                     )
-                    print("### marker 2: Processing results")
                     # Appends to external results pdf
                     internal_pdf_file = open(pdf_path, 'rb')
-                    print("### marker 22")
                     pdf_writer.append(fileobj=internal_pdf_file, pages=(0,1))
-                    print("### marker 3")
                     # Remove study from study list if spec provided
                     if not spec is None:
                         while (relative_path,file_base_name) in study_list: 
                             study_list.remove((relative_path,file_base_name))
-        print("### marker 4") 
         # Stop searching after one iteration if no spec provided
         if spec_path is None:
             logger.info("Stop Searching")
@@ -256,7 +252,8 @@ def process_results_single_thread(
     fdroop_pdf_path = os.path.join(results_dir, "fdroop.pdf")
     
     try:
-        analysis.plot_fdroop(fdroop_pdf_path)
+        if ANALYSIS:
+            analysis.plot_fdroop(fdroop_pdf_path)
     except Exception as e:
         print(f"### fdroop Exceptin: {e}")
             
