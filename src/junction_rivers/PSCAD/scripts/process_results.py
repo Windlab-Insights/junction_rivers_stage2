@@ -265,12 +265,12 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', "--output-spec-path", type=str, default=None)
-    parser.add_argument('-c', "--curr-results-dir", type=str, default=None)
-    parser.add_argument('-r', "--results-dir", type=str, default=None)
+    parser.add_argument('-c', "--curr-results-dir", type=str, default="C:\\Temp\\71d40ff3-89e7-454b-b1f5-21efc29c")
+    parser.add_argument('-r', "--results-dir", type=str, default="G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_Siemens_GW_v5esults")
     parser.add_argument('-p', "--processes", type=int, default=1, help="(number of processes for multiprocessing)")
     parser.add_argument('-k', "--secs-to-remove", type=float, default=0, help="(seconds removed from begining of stored pkl)")
     parser.add_argument('-d', "--delete-src-data", type=bool, default=False, help="(1 = delete source data, 0 = keep source data)")
-    parser.add_argument('-e', "--data-source", type=str, default=".pkl",help="(.out or .psout)")
+    parser.add_argument('-e', "--data-source", type=str, default=".psout",help="(.out or .psout)")
     args = parser.parse_args()
 
     logger.info("Started: process_results.py")
