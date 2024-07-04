@@ -67,7 +67,7 @@ class JRWFPlotter(Plotter):
         if PLOT_INIT:
             self.plot_start = 0
         else:
-            self.plot_start = float(spec_dict["substitutions"]["Time_Full_Init_Time_sec"])
+            self.plot_start = float(spec_dict["substitutions"]["TIME_Full_Init_Time_sec"])
         try:
             self.plot_duration = df['V_POC'].index[-1] - self.plot_start
             self.plot_end = df["V_POC"].index[-1]
@@ -141,17 +141,13 @@ class JRWFPlotter(Plotter):
         fig2.subplots_adjust(left=0.04, right=0.975, bottom=0.05, top=0.96, wspace=0.12, hspace=0.4)
 
         # Construct Layout
-        
-        # Page 1: Submission version
         layout_main_1 = gridspec.GridSpec(1, 4, figure=fig1)
+        layout_main_2 = gridspec.GridSpec(1, 4, figure=fig2)
         column_1 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_1[0])
         column_2 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_1[1])
         column_3 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_1[2])
         column_4 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_1[3])
         column_other = gridspec.GridSpecFromSubplotSpec(number_of_misc_plots, 1, subplot_spec=column_4[:number_of_rows - 1])
-        
-        # Page 2: Investigation Plots
-        layout_main_2 = gridspec.GridSpec(1, 4, figure=fig2)
         column_5 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_2[0])
         column_6 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_2[1])
         column_7 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_2[2])
@@ -377,18 +373,18 @@ class JRWFPlotter(Plotter):
                 time_axis_on=True,
             )
             
-            print("### marker 1")
+            # print("### marker 1")
             # va_poc = pd.DataFrame()
             # vb_poc = pd.DataFrame()
             # vc_poc = pd.DataFrame()
-            print("### marker 2 " + spec_dict["Grid_Hz_t"])
+            # print("### marker 2 " + spec_dict["Grid_Hz_t"])
             freq_step = json.loads(spec_dict["Grid_Hz_t"])
             xrange = []
             if len(freq_step) > 2:
                 freq_step = freq_step[1:-1]
                 for t_delta in freq_step:
-                    print("### marker 3 " + str(t_delta))
-                    print("### marker 4")
+                    # print("### marker 3 " + str(t_delta))
+                    # print("### marker 4")
                     cushion = 0.1
                     t_delta_start = max(0,t_delta-cushion)
                     t_delta_end = min(t_delta+cushion, self.plot_end-self.plot_start)
@@ -396,7 +392,7 @@ class JRWFPlotter(Plotter):
                     # va_poc.append(df['Va_POC'][t_delta_start:t_delta_end])
                     # vb_poc.append(df['Vb_POC'][t_delta_start:t_delta_end])
                     # vc_poc.append(df['Vc_POC'][t_delta_start:t_delta_end])
-                    print("### marker 5")
+                    # print("### marker 5")
 
             
             # POC Vabc Plotting
@@ -1136,7 +1132,7 @@ class JRWFPlotter(Plotter):
         # Only ad legend if there are labels.
         _, tmplables = ax.get_legend_handles_labels()
         if tmplables and legendon:
-            ax.legend(frameon=False, fontsize='x-small', bbox_to_anchor=(1.0, 1.13), ncol=6,
+            ax.legend(frameon=False, fontsize='x-small', loc="lower right", bbox_to_anchor=(1.0, 1.12), ncol=6,
                     borderpad=0, columnspacing=1, handletextpad=0.3, handlelength=1.2, labelcolor=AXIS_COLOUR)
 
         ax.spines["bottom"].set_color(AXIS_COLOUR)
@@ -1175,43 +1171,43 @@ class JRWFPlotter(Plotter):
     def plot_Vabc(self, outer_ax, xrange, fig, traces, title):
         # create a subplot for each tuple in xrange
         try:
-            print(f"### marker 6, {len(xrange)}")
+            # print(f"### marker 6, {len(xrange)}")
             subplots = gridspec.GridSpecFromSubplotSpec(1, len(xrange), subplot_spec=outer_ax)
             outer_ax.axis("off")
-            print("### marker 7")
+            # print("### marker 7")
             inner_ax: List[plt.Axes] = []
             for i in range(len(xrange)):
-                print(f"### marker 8 {str(xrange[i])}, i = {i}")
+                # print(f"### marker 8 {str(xrange[i])}, i = {i}")
                 xlim_l, xlim_h = xrange[i]
-                print("### marker 15 " + str(xlim_l) + ", " + str(xlim_h))
+                # print("### marker 15 " + str(xlim_l) + ", " + str(xlim_h))
                 inner_ax.append(fig.add_subplot(subplots[-1,i]))
                 # inner_ax = plt.Subplot(fig, subplot[i])
-                print(f"### marker 9, size of traces: {len(traces)}")
+                # print(f"### marker 9, size of traces: {len(traces)}")
                 for signal_label, lw, colour, order, signal in traces:
-                    print(f"### marker 10, signal label {signal_label}")
+                    # print(f"### marker 10, signal label {signal_label}")
                     inner_ax[-1].plot(signal.index - self.plot_start, signal.values, lw=lw, c=colour, zorder=order, label=signal_label)
                 inner_ax[-1].set_xlim(xlim_l, xlim_h)
-                print("### marker 10")
+                # print("### marker 10")
                 d=0.015
                 kwargs = dict(transform=inner_ax[-1].transAxes, color='k', clip_on=False)
-                print("### marker 11")
+                # print("### marker 11")
                 if len(xrange) > 1:
                     if i == 0:
-                        print(f"### marker 31 i = {i}")
+                        # print(f"### marker 31 i = {i}")
                         inner_ax[-1].spines['right'].set_visible(False)
                         #inner_ax[-1].yaxis.tick_left()
                         inner_ax[-1].tick_params(axis='y', colors=AXIS_COLOUR, labelsize=7, direction='in', which='both')
                         inner_ax[-1].plot((1-d, 1+d), (-d, +d), **kwargs)
                         inner_ax[-1].plot((1-d, 1+d), (1-d, 1+d), **kwargs)
                     elif i == len(xrange)-1:
-                        print(f"### marker 32 i = {i}")
+                        # print(f"### marker 32 i = {i}")
                         inner_ax[-1].spines['left'].set_visible(False)
                         inner_ax[-1].tick_params(axis='y', which='both', left=False, right=False, labelleft=False, labelright=False)
                         #inner_ax[-1].yaxis.tick_right()
                         inner_ax[-1].plot((-d, +d), (1-d, 1+d), **kwargs)
                         inner_ax[-1].plot((-d, +d), (-d, +d), **kwargs)
                     else:
-                        print(f"### marker 33 i = {i}")
+                        # print(f"### marker 33 i = {i}")
                         inner_ax[-1].spines['right'].set_visible(False)
                         inner_ax[-1].spines['left'].set_visible(False)
                         inner_ax[-1].tick_params(axis='y', which='both', left=False, right=False, labelleft=False, labelright=False)
@@ -1245,16 +1241,16 @@ class JRWFPlotter(Plotter):
             inner_ax[-1].spines["right"].set_color(AXIS_COLOUR)
                 
             _, tmplables = inner_ax[-1].get_legend_handles_labels()
-            print(f"### marker 54: tmplables = {tmplables}")
+            # print(f"### marker 54: tmplables = {tmplables}")
             if tmplables:
                 inner_ax[-1].legend(frameon=False, fontsize='x-small', loc="lower right", bbox_to_anchor=(1.0, 0.0), ncol=6,
                         borderpad=0, columnspacing=1, handletextpad=0.3, handlelength=1.2, labelcolor=AXIS_COLOUR)
             
-            print("### marker 12")
+            # print("### marker 12")
         except Exception as e:
             print(f"### Exception: {e}")
 
-        print("### marker 13")
+        # print("### marker 13")
         return
                 
         

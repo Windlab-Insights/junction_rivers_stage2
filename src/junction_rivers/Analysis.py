@@ -13,12 +13,12 @@ class Analysis:
     Freqency Disturbance Analysis
     """
 
-    def fdroop (self, tuning, scenario: pd.DataFrame, run_data: pd.DataFrame):
+    def fdroop(self, tuning, scenario: pd.DataFrame, run_data: pd.DataFrame):
         init_ppoc_wind_mw = float(scenario['Pref_Wind_MW_v'])
         init_ppoc_bess_mw = float(scenario['Pref_BESS_MW_v'])
 
         model_init_time = float(tuning['TIME_Full_Init_Time_sec'])
-        post_init_time = model_init_time + float(scenario['Post_Init_Duration_s.1'])
+        post_init_time = model_init_time + float(scenario['Post_Init_Duration_s'])
 
         data = run_data[model_init_time:post_init_time]
 
