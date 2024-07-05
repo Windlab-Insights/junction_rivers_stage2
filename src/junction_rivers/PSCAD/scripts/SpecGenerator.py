@@ -97,8 +97,6 @@ class SpecGenerator():
         
 ################# ADD PARAMS FOR A TEST ################
     def update_rows(self, specs: list, in_row: dict):
-        ic("update_rows")
-        ic(specs)
         # if there are no specs to add, then just return the test line as is
         if len(specs) == 0:
             return [in_row]
@@ -114,7 +112,6 @@ class SpecGenerator():
         return out_rows          
     
     def add_new_row(self, row: pd.DataFrame, category: str):
-        ic('add_new_row')
         # Initialise a dict with category information and a list of dicts with just the empty dict.
         first_test = dict()
         first_test.update({'File_Name': f'{category}_test_{row["Test"]}'.replace("-","_")})
@@ -136,7 +133,7 @@ class SpecGenerator():
         
         out_rows = []
         for new_test in new_tests:
-            p_ref_specs = self.add_p_ref_specs(row, self.BESS_PZERO)
+            p_ref_specs = self.add_p_ref_specs(row)
             out_rows.extend(self.update_rows(p_ref_specs, new_test))
         new_tests = out_rows[:]
         
@@ -193,7 +190,6 @@ class SpecGenerator():
         return new_tests
     
     def add_file_info(self, row: pd.DataFrame):
-        ic('add_file_info')
         row_sect_list = []
         row_sect = dict()
         row_sect =  {
@@ -225,60 +221,74 @@ class SpecGenerator():
                     })
             finally:
                 row_sect_list.append(temp_sect)
-        ic(row_sect_list)
         return row_sect_list
     
     # Add Pref_Wind_MW and Pref_BESS_MW info
-    def add_p_ref_specs(self, row: pd.DataFrame, wf_state: int):
-        ic('add_p_ref_specs')
+    def add_p_ref_specs(self, row: pd.DataFrame):
+        # from the system inf sheet, get the wf states and make a list of them to run through
+        if self.system_inf.loc["WF States"]["Var Val"] == "all":
+            wf_states = [self.WTG_PZERO, self.BESS_PMAX, self.BESS_PZERO, self.BESS_PMIN]
+        else:
+            wf_state_strs = self.system_inf.loc["WF States"]["Var Val"].split("; ")
+            wf_states = []
+            for wf_state_str in wf_state_strs:
+                if wf_state_str == "WTG PZERO":
+                    wf_states.append(self.WTG_PZERO)
+                elif wf_state_str == "BESS PMAX":
+                    wf_states.append(self.BESS_PMAX)
+                elif wf_state_str == "BESS PZERO":
+                    wf_states.append(self.BESS_PZERO)
+                elif wf_state_str == "BESS PMIN":
+                    wf_states.append(self.BESS_PMIN)
+                else:
+                    raise CalcSheetError("wf state")
         row_sect = dict()
         if 'Active Power (pu)' in row:
-            if 'Time Steps (s)' in row and 'Pref Deltas (pu)' in row:
-                pref_profile = self.Profile(self.figure_references)
-                pref_profile.read_profile(v_data=row["Pref Deltas (pu)"], t_data=row["Time Steps (s)"])
-                pref_v = ([(row["Active Power (pu)"] + delta)*self.p_nom for delta in pref_profile.deltas])
-                if wf_state == self.WTG_PZERO:
-                    row_sect = {'Pref_Wind_MW_v': 0,
-                                'Pref_BESS_MW_v': pref_v,
-                                'Pref_BESS_MW_t': pref_profile.time_steps}
-                elif wf_state == self.BESS_PMAX:
-                    row_sect = {'Pref_Wind_MW_v': pref_v,
-                                'Pref_BESS_MW_v': self.p_max_bess,
-                                'Pref_Wind_MW_t': pref_profile.time_steps}
-                elif wf_state == self.BESS_PZERO:
-                    row_sect = {'Pref_Wind_MW_v': pref_v,
-                                'Pref_BESS_MW_v': 0,
-                                'Pref_Wind_MW_t': pref_profile.time_steps}
-                elif wf_state == self.BESS_PMIN:
-                    row_sect = {'Pref_Wind_MW_v': pref_v,
-                                'Pref_BESS_MW_v': -self.p_max_bess,
-                                'Pref_Wind_MW_t': pref_profile.time_steps}
+            for wf_state in wf_states:
+                if 'Time Steps (s)' in row and 'Pref Deltas (pu)' in row:
+                    pref_profile = self.Profile(self.figure_references)
+                    pref_profile.read_profile(v_data=row["Pref Deltas (pu)"], t_data=row["Time Steps (s)"])
+                    pref_v = ([(row["Active Power (pu)"] + delta)*self.p_nom for delta in pref_profile.deltas])
+                    if wf_state == self.WTG_PZERO:
+                        row_sect = {'Pref_Wind_MW_v': 0,
+                                    'Pref_BESS_MW_v': pref_v,
+                                    'Pref_BESS_MW_t': pref_profile.time_steps}
+                    elif wf_state == self.BESS_PMAX:
+                        row_sect = {'Pref_Wind_MW_v': pref_v,
+                                    'Pref_BESS_MW_v': self.p_max_bess,
+                                    'Pref_Wind_MW_t': pref_profile.time_steps}
+                    elif wf_state == self.BESS_PZERO:
+                        row_sect = {'Pref_Wind_MW_v': pref_v,
+                                    'Pref_BESS_MW_v': 0,
+                                    'Pref_Wind_MW_t': pref_profile.time_steps}
+                    elif wf_state == self.BESS_PMIN:
+                        row_sect = {'Pref_Wind_MW_v': pref_v,
+                                    'Pref_BESS_MW_v': -self.p_max_bess,
+                                    'Pref_Wind_MW_t': pref_profile.time_steps}
+                    else:
+                        raise CalcSheetError("wf_state")
                 else:
-                    raise CalcSheetError("wf_state")
-            else:
-                pref_v = row["Active Power (pu)"]*self.p_nom
-                if wf_state == self.WTG_PZERO:
-                    row_sect = {'Pref_Wind_MW_v': 0,
-                                'Pref_BESS_MW_v': pref_v}
-                elif wf_state == self.BESS_PMAX:
-                    row_sect = {'Pref_Wind_MW_v': pref_v,
-                                'Pref_BESS_MW_v': self.p_max_bess}
-                elif wf_state == self.BESS_PZERO:
-                    row_sect = {'Pref_Wind_MW_v': pref_v,
-                                'Pref_BESS_MW_v': 0}
-                elif wf_state == self.BESS_PMIN:
-                    row_sect = {'Pref_Wind_MW_v': pref_v,
-                                'Pref_BESS_MW_v': -self.p_max_bess}
-                else:
-                    raise CalcSheetError("wf_state")
+                    pref_v = row["Active Power (pu)"]*self.p_nom
+                    if wf_state == self.WTG_PZERO:
+                        row_sect = {'Pref_Wind_MW_v': 0,
+                                    'Pref_BESS_MW_v': pref_v}
+                    elif wf_state == self.BESS_PMAX:
+                        row_sect = {'Pref_Wind_MW_v': pref_v,
+                                    'Pref_BESS_MW_v': self.p_max_bess}
+                    elif wf_state == self.BESS_PZERO:
+                        row_sect = {'Pref_Wind_MW_v': pref_v,
+                                    'Pref_BESS_MW_v': 0}
+                    elif wf_state == self.BESS_PMIN:
+                        row_sect = {'Pref_Wind_MW_v': pref_v,
+                                    'Pref_BESS_MW_v': -self.p_max_bess}
+                    else:
+                        raise CalcSheetError("wf_state")
         else:
             row_sect = {'Pref_Wind_MW_v': 0,
                         'Pref_BESS_MW_v': 0}
-        ic(row_sect)
         return [row_sect]
     
     def add_q_specs(self, row: pd.DataFrame, new_tests: list):
-        ic("add_q_specs")
         row_sect = dict()
         # Reactive power is specified
         if 'Reactive Power (pu)' in row:
@@ -288,7 +298,6 @@ class SpecGenerator():
         return [row_sect]
             
     def add_v_specs(self, row: pd.DataFrame, new_tests: list):
-        ic('add_v_specs')
         row_sect_list = []
         row_sect = dict()
         # Use data which has already been added to this test to calculate the values to be added
@@ -356,11 +365,9 @@ class SpecGenerator():
             row_sect = {'Init_Vpoc_pu_v': self.v_set,
                         'Vslack_pu_v': self.calc_vslack_from_vpoc(vpoc=self.v_set, ppoc=ppoc, qpoc=qpoc, Zs=Zs)}
             row_sect_list = [row_sect]
-        ic(row_sect)
         return row_sect_list
     
     def add_freq_specs(self, row: pd.DataFrame):
-        ic('add_feq_specs')
         row_sect = dict()
         row_sect_list = []
         if 'Freq Deltas (Hz)' in row:
