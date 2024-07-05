@@ -862,57 +862,56 @@ class SpecGenerator():
             self.ramps = None
             self.profile_type = None
 
-        def check_valid_input(self, string):
+        def check_valid_input(self, v_data:str, t_data:str, r_data=None):
+            # check that the data inputs are all the same
+            if not v_data == t_data:
+                return "invalid"
+            if not r_data == None:
+                if not v_data == r_data:
+                    return "invalid"
+            # check if the data inputs can be read as a list
             try:
-                _ = json.loads(string)
-                return True
-            except:
-                if string in self.figure_references["Figure"]:
-                    return True
-                else:
-                    return False
+                _ = json.loads(v_data)
+                return "manual"
+            except json.decoder.JSONDecoder:
+                # check if the data inputs can be read as a default figure
+                try:
+                    self.get_default_profile_type(v_data)
+                    return "default"
+                except KeyError:
+                    return "invalid"
         
         def get_default_profile_type(self, figure_name: str):
             figure_reference = self.figure_references.loc[figure_name]
             self.profile_type =  figure_reference["Type"]
             
         def read_default_profile(self, fig: str, ramp = False):
-            # default profile is refered to as "fig"
-            try:
-                self.get_default_profile_type(fig)
-            except Exception as e:
-                print(f"### {e}")
+            if not self.check_valid_input(v_data=fig, t_data=fig) == "default":
                 raise CalcSheetError("figure name")
+            # default profile is refered to as "fig"
             figure_reference = self.figure_references.loc[fig]
-            ic(figure_reference)
-            ic(figure_reference["Deltas"])
+            if not self.check_valid_input(v_data=figure_reference["Deltas"], t_data=figure_reference["Time Steps"]) == "manual":
+                raise CalcSheetError("figure reference")
             self.deltas = json.loads(figure_reference["Deltas"])
-            ic(self.deltas)
-            ic(figure_reference["Time Steps"])
             self.time_steps = json.loads(figure_reference["Time Steps"])
-            ic(self.time_steps)
             if ramp:
-                self.ramps = figure_reference["Ramp"][1:-1].split(",")
+                self.ramps = figure_reference["Ramp"] # we can just read the ramp in as a string
         
         def read_profile(self, v_data: str, t_data: str, r_data=None):
+            input_type = self.check_valid_input(v_data=v_data, t_data=t_data, r_data=r_data) 
             # manual profile is refered to as [1,2,3]
-            try:
+            if input_type == "manual":
                 self.deltas = json.loads(v_data)
                 self.time_steps = json.loads(t_data)
                 if not r_data == None:
-                    try:
-                        self.ramps = json.loads(r_data)
-                    except:
-                        raise CalcSheetError("ramps")
-            except:
-                # if the profile can't be recognised, then try read the default profile
-                try:
-                    # If there is a ramp in the profile, then read the ramp of the default profile
-                    if not r_data == None:
-                        self.read_default_profile(fig=v_data, ramp=True)
-                    else:
-                        self.read_default_profile(fig=v_data)
-                except Exception as e:
-                    print(f"### {e}")
-                    raise CalcSheetError("time steps or delta")
+                    self.ramps = r_data
+            elif input_type == "default":
+            # if the profile can't be recognised, then try read the default profile
+            # If there is a ramp in the profile, then read the ramp of the default profile
+                if not r_data == None:
+                    self.read_default_profile(fig=v_data, ramp=True)
+                else:
+                    self.read_default_profile(fig=v_data)
+            elif input_type == "invalid":
+                raise CalcSheetError("time step, ramp, or delta")
             
