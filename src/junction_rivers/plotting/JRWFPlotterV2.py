@@ -141,13 +141,17 @@ class JRWFPlotter(Plotter):
         fig2.subplots_adjust(left=0.04, right=0.975, bottom=0.05, top=0.96, wspace=0.12, hspace=0.4)
 
         # Construct Layout
+        
+        # Page 1: Main page:  
         layout_main_1 = gridspec.GridSpec(1, 4, figure=fig1)
-        layout_main_2 = gridspec.GridSpec(1, 4, figure=fig2)
         column_1 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_1[0])
         column_2 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_1[1])
         column_3 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_1[2])
         column_4 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_1[3])
         column_other = gridspec.GridSpecFromSubplotSpec(number_of_misc_plots, 1, subplot_spec=column_4[:number_of_rows - 1])
+        
+        # Page 2: Investigation signals page
+        layout_main_2 = gridspec.GridSpec(1, 4, figure=fig2)
         column_5 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_2[0])
         column_6 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_2[1])
         column_7 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_2[2])
@@ -1132,7 +1136,7 @@ class JRWFPlotter(Plotter):
         # Only ad legend if there are labels.
         _, tmplables = ax.get_legend_handles_labels()
         if tmplables and legendon:
-            ax.legend(frameon=False, fontsize='x-small', loc="lower right", bbox_to_anchor=(1.0, 1.12), ncol=6,
+            ax.legend(frameon=False, fontsize='x-small', loc="lower right", bbox_to_anchor=(1.0, 1.0), ncol=6,
                     borderpad=0, columnspacing=1, handletextpad=0.3, handlelength=1.2, labelcolor=AXIS_COLOUR)
 
         ax.spines["bottom"].set_color(AXIS_COLOUR)
