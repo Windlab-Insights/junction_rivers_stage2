@@ -38,9 +38,7 @@ class SpecGenerator():
     def spec_generator (self, calc_sheet_path, spec_path):
         
         checklist = pd.read_excel(calc_sheet_path, sheet_name="Checklist", index_col="Checklist", header=0)
-        ic(checklist)
         self.system_inf = pd.read_excel(calc_sheet_path, sheet_name="System_inf", index_col="Var name", header=0)
-        ic(self.system_inf)
         self.figure_references = pd.read_excel(calc_sheet_path, sheet_name="Figure References", index_col="Figure", header=0)
         
         # Record project information
@@ -54,6 +52,7 @@ class SpecGenerator():
         self.v_set = self.system_inf.loc["V_POC"]["Var Val"]
         self.p_max_bess = 70
         self.qv_droop = self.system_inf.loc["Q-V Droop"]["Var Val"]
+        self.software = self.system_inf.loc["Software"]["Var Val"]
         try:
             self.suite = self.system_inf.loc["Suite"]["Var Val"]
         except KeyError:
@@ -64,16 +63,14 @@ class SpecGenerator():
         
         # Iterrate through the categories as recorded in the checklist
         for index_cat, category in checklist.iterrows():
-            ic(index_cat)
-            ic(category)
             if category.loc["Action"] == "Yes":
                 tests = pd.read_excel(calc_sheet_path, sheet_name=index_cat, header=0)
                 ic(tests)
                 
                 # Iterate through the tests in the sheet
                 for _, row in tests.iterrows():
-                    
-                    # Determine if to run the test or not
+                    ic(row)
+                    # Determine if to run the test or not based on th suite selection
                     if self.suite == "None":
                         run_test = row["Action"] == "Yes"
                     elif self.suite == "Reduced_DMAT":
@@ -84,14 +81,17 @@ class SpecGenerator():
                         run_test = row["Suite"] == "CSR"
                     else:
                         raise CalcSheetError("test suite")
-                    
+                    # Determine if to run the test based on the software which the test is designed for
+                    if self.software == "PSCAD":
+                        run_test = run_test and (row["Software"] == "PSCAD" or row["Software"] == "Both")
+                    elif self.software == "PSSE":
+                        run_test = run_test and (row["Software"] == "PSSE" or row["Software"] == "Both")
+                    # add a line to the code to  actually run the test
                     if run_test:
                         category_formated = index_cat.lower().replace(" ", "_")
                         new_row = self.add_new_row(row, category=category_formated)
                         for row in new_row:
-                            spec_df = spec_df.append(row, ignore_index=True)
-                        
-                        
+                            spec_df = spec_df.append(row, ignore_index=True)        
         spec_df.to_csv(spec_path)
         
         
@@ -243,6 +243,7 @@ class SpecGenerator():
                 else:
                     raise CalcSheetError("wf state")
         row_sect = dict()
+        row_sect_list = []
         if 'Active Power (pu)' in row:
             for wf_state in wf_states:
                 if 'Time Steps (s)' in row and 'Pref Deltas (pu)' in row:
@@ -283,10 +284,12 @@ class SpecGenerator():
                                     'Pref_BESS_MW_v': -self.p_max_bess}
                     else:
                         raise CalcSheetError("wf_state")
+                row_sect_list.append(row_sect)
         else:
             row_sect = {'Pref_Wind_MW_v': 0,
                         'Pref_BESS_MW_v': 0}
-        return [row_sect]
+            row_sect_list = [row_sect]
+        return row_sect_list
     
     def add_q_specs(self, row: pd.DataFrame, new_tests: list):
         row_sect = dict()
@@ -400,7 +403,6 @@ class SpecGenerator():
         return row_sect_list
     
     def add_qref_specs(self, row: pd.DataFrame, new_tests: list):
-        ic("add_qref_specs")
         row_sect = dict()
         if 'Event' in row and row["Event"] == "Qref":
             qref_profile = self.Profile(self.figure_references)
@@ -411,7 +413,6 @@ class SpecGenerator():
         return [row_sect]
     
     def add_vref_specs(self, row: pd.DataFrame, new_tests: list):
-        ic("add_vref_specs")
         row_sect = dict()
         if 'Event' in row and row["Event"] == "Vref":
             vref_profile = self.Profile(self.figure_references)
@@ -421,9 +422,9 @@ class SpecGenerator():
                         'Vref_pu_t': vref_profile.time_steps}
             vref_init = v_starting_point + vref_profile.deltas[0]
         # We might want to calculate Vref based off the given Qpoc and Vpoc values
-        elif 'Init_Vpoc_pu_v' in new_tests and 'Init_Qpoc_MVAr_v' in new_tests:
+        elif 'Init_Vpoc_pu_v' in new_tests and 'Init_Qpoc_pu_v' in new_tests:
             vpoc = new_tests["Init_Vpoc_pu_v"]
-            qpoc = new_tests["Init_Qpoc_MVAr_v"]
+            qpoc = new_tests["Init_Qpoc_pu_v"]
             row_sect = {'Vref_pu_v': self.calc_vref_from_qpoc_and_vpoc(qpoc=qpoc/self.q_nom,vpoc=vpoc)}
             vref_init = self.calc_vref_from_qpoc_and_vpoc(qpoc=qpoc/self.q_nom,vpoc=vpoc)
         # if not otherwise specifed, then set the vref value to 1.034 (#### or 1 pu?)
@@ -431,13 +432,13 @@ class SpecGenerator():
             row_sect = {'Vref_pu_v': self.v_set}
             vref_init = self.v_set
         # Update the qpoc value based off vref and vpoc    
-        if 'Init_Vpoc_pu_v' in new_tests and not 'Init_Qpoc_MVAr_v' in new_tests:
+        if 'Init_Vpoc_pu_v' in new_tests and not 'Init_Qpoc_pu_v' in new_tests:
             vpoc = new_tests["Init_Vpoc_pu_v"]
             vref = vref_init
-            row_sect.update({'Init_Qpoc_MVAr_v': self.calc_qpoc_from_vref_and_vpoc(vref=vref,vpoc=vpoc)})
+            row_sect.update({'Init_Qpoc_pu_v': self.calc_qpoc_from_vref_and_vpoc(vref=vref,vpoc=vpoc)})
         # Update the vpoc value based off vref and qpoc
-        elif not 'Init_Vpoc_pu_v' in new_tests and 'Init_Qpoc_MVAr_v' in new_tests:
-            qpoc = new_tests["Init_Qpoc_MVAr_v"]
+        elif not 'Init_Vpoc_pu_v' in new_tests and 'Init_Qpoc_pu_v' in new_tests:
+            qpoc = new_tests["Init_Qpoc_pu_v"]
             vref = vref_init
             row_sect.update({'Init_Vpoc_pu_v': self.calc_vpoc_from_qpoc_and_vref(qpoc=qpoc,vref=vref)})
             
@@ -493,7 +494,6 @@ class SpecGenerator():
         return row_sect_list
     
     def add_phase_specs(self, row: pd.DataFrame, new_tests: pd.DataFrame):
-        ic("add_phase_specs")
         row_sect = dict()
         row_sect_list = []
         if 'Angle Change (deg)' in row:
@@ -517,7 +517,6 @@ class SpecGenerator():
             return False
     
     def add_fault_specs(self, row: pd.DataFrame, new_tests: list):
-        ic("add_fault_specs")
         row_sect = dict()
         row_sect_list = []
         if 'Apply Fault (s)' in row:
@@ -588,7 +587,6 @@ class SpecGenerator():
 ##################### MFRT GENERATOR #######################
 
     def mfrt_seq(self, row: pd.DataFrame, new_tests: list):
-        ic('mfrt_seq')
         random.seed(row["Test"])
         fault_info = []
         fault_type_options = ["3PHG", "2PHG", "1PHG", "L-L"]
@@ -609,18 +607,15 @@ class SpecGenerator():
             max_time = 300
             # Choose a ranom number of faults to apply between 5 and 15
             no_faults = random.randint(min_no_faults, max_no_faults)
-            ic(no_faults)
             # We can specify a minimum time between faults
             min_time_between_faults = 0.1
             # By using the integer random sampling method we can control the accuracy.
             accuracy = 0.001
             time_range = range(0, int(min(max_time, row["End Run (s)"])/accuracy), int(min_time_between_faults/accuracy))
-            ic(time_range)
             time = random.sample(time_range, k=no_faults)
             time.sort()
             # Convert the list back to seconds.
             time = [item*accuracy for item in time]
-            ic(time)
             # Loop through each time step.
             for i in range(len(time)):
                 fault_type = random.choice(fault_type_options)
@@ -629,13 +624,10 @@ class SpecGenerator():
                 fault_multiplier = random.randint(0, 5)
                 fault_info.append((fault_type, time[i], fault_duration, fault_multiplier))
         row_sect = self.generate_mfrt(fault_info)
-        ic(row_sect)
         row_sect.update({'Fault_X2R_v': new_tests["Grid_X2R_v"]})
-        ic(row_sect)
         return row_sect
     
     def generate_mfrt(self, fault_info: list):
-        ic('generate_mfrt')
         row_sect = dict()
         fault_types = []
         fault_durations = []
@@ -668,34 +660,23 @@ class SpecGenerator():
         return row_sect
     
     def calc_ramp(self, row: pd.DataFrame):
-        ic('calc_ramp')
         d_freq = abs(row["Freq Target"] - self.f_nom)
         d_t = d_freq/row["Freq Tamp Hz/s"]
         t_end_ramp = min(row["Apply Step (s)"] + d_t, row["End Run (s)"])
-        return t_end_ramp
-    
-    def generate_oscillation(self, vslack: float, ):
-        ic("generate_oscillation")
-        
-        
+        return t_end_ramp 
         
 ##################### FAULT CALCULATIONS #######################
     def calc_fault_impedance(self, fault_voltage: float, fault_distance: float, grid_impedance: tuple):
-        ic('calc_fault_impedance')
         (_, _, grid_impedance) = grid_impedance
-        ic(grid_impedance)
-        ic(fault_voltage)
         grid_impedance = grid_impedance*self.z_base
         fault_impedance = fault_distance*grid_impedance*fault_voltage/abs(1 - fault_voltage)
             
         return fault_impedance
     
     def read_fault_multiplier(self, zf_str: str):
-        ic('read_fault_multiplier')
         # can't set fault impedance to 0 so set it to a very low number.
         min_fault_impedance = 0.000000001
         str_list = zf_str.split("=")
-        ic(str_list)
         # If there is a "[comment]" part, remove this.
         if "[" in str_list[1]:
             str_list[1] = str_list[1].split("[")[0]
@@ -721,7 +702,6 @@ class SpecGenerator():
         return multiplier
     
     def calc_fault_voltage(self, Zf: tuple, Zs: tuple):
-        ic('calc_fault_voltage')
         (_, _, zs) = Zs
         Udip= Zf/(zs + Zf)
         return Udip
@@ -760,7 +740,6 @@ class SpecGenerator():
             return False
         
     def read_scr_and_x2r(self, row: pd.DataFrame):
-        ic("read_scr_and_x2r")
         scr_strs = str(row["SCR"]).split("; ")
         x2r_strs = str(row["X/R"]).split("; ")
         scr_and_x2r = []
@@ -798,13 +777,10 @@ class SpecGenerator():
         return scr_and_x2r
     
     def calc_fault_level(self, scr: float):
-        ic("calc_fault_level")
         fault_level = scr * self.p_nom
-        ic(fault_level)
         return fault_level
     
     def calc_grid_impedence(self, pu: bool, fl, x2r: float):
-        ic("calc_grid_impedence")
         Zs_list = []
         if type(fl) == float:
             fl = [fl]
@@ -821,34 +797,27 @@ class SpecGenerator():
         return Zs_list
         
     def calc_vslack_from_vpoc(self, vpoc: float, ppoc: float, qpoc: float, Zs: tuple):
-        ic("calc_vslack_from_vpoc")
         spoc = math.sqrt(ppoc**2 + qpoc**2)
         (rgrid_pu, xgrid_pu, zgrid_pu) = Zs
-        ic(rgrid_pu*self.z_base)
-        ic(xgrid_pu*self.z_base)
+
         vslack = math.sqrt(vpoc**2 + spoc**2/vpoc**2*zgrid_pu**2 - 2*(ppoc*rgrid_pu + qpoc*xgrid_pu))
         return vslack
         
     def calc_vpoc_from_vslack(self, vslack: float, ppoc: float, qpoc: float, Zs: tuple):
-        ic("calc_vpoc_from_vslack")
         spoc = math.sqrt(ppoc**2 + qpoc**2)
         (rgrid_pu, xgrid_pu, zgrid_pu) = Zs
         vgrid = math.sqrt((vslack**2 + 2*(ppoc*rgrid_pu + qpoc*xgrid_pu) + math.sqrt((vslack**2 + 2*(ppoc*rgrid_pu + qpoc*xgrid_pu))**2 - 4*spoc**2*zgrid_pu**2))/2)
-        ic(vgrid)
         return vgrid
     
     def calc_qpoc_from_vref_and_vpoc(self, vref: float, vpoc: float):
-        ic("calc_qpoc_from_vref_and_vpoc")
         qpoc = (vref - vpoc)/self.qv_droop
         return qpoc
     
     def calc_vref_from_qpoc_and_vpoc(self, qpoc: float, vpoc: float):
-        ic("calc_vref_from_qpoc_and_vpoc")
         vref = vpoc + qpoc*self.qv_droop
         return vref
     
     def calc_vpoc_from_qpoc_and_vref(self, qpoc: float, vref: float):
-        ic("calc_vpoc_from_qpoc_and_vref")
         vpoc = -qpoc*self.qv_droop + vref
         return vpoc
 
@@ -863,17 +832,17 @@ class SpecGenerator():
             self.profile_type = None
 
         def check_valid_input(self, v_data:str, t_data:str, r_data=None):
-            # check that the data inputs are all the same
-            if not v_data == t_data:
-                return "invalid"
-            if not r_data == None:
-                if not v_data == r_data:
-                    return "invalid"
             # check if the data inputs can be read as a list
             try:
                 _ = json.loads(v_data)
                 return "manual"
-            except json.decoder.JSONDecoder:
+            except json.decoder.JSONDecodeError:
+                # check that the data inputs are all the same
+                if not v_data == t_data:
+                    return "invalid"
+                if not r_data == None:
+                    if not v_data == r_data:
+                        return "invalid"
                 # check if the data inputs can be read as a default figure
                 try:
                     self.get_default_profile_type(v_data)
@@ -904,7 +873,7 @@ class SpecGenerator():
                 self.deltas = json.loads(v_data)
                 self.time_steps = json.loads(t_data)
                 if not r_data == None:
-                    self.ramps = r_data
+                    self.ramps = r_data # we can just log ramp data as a string
             elif input_type == "default":
             # if the profile can't be recognised, then try read the default profile
             # If there is a ramp in the profile, then read the ramp of the default profile

@@ -201,7 +201,7 @@ class JRWFPlotter(Plotter):
         ax_bess_frt = fig1.add_subplot(column_other[-1,-1])
         ax_frequency = fig1.add_subplot(column_4[-1, -1])
         ax_brk2 = fig2.add_subplot(column_9[-4, -1])
-        ax_tap_pos2 = fig2.add_subplot(column_9[-3, -1])
+        ax_vslack = fig2.add_subplot(column_9[-3, -1])
         ax_wtg_frt2 = fig2.add_subplot(column_9[-2,-1])
         ax_bess_frt2 = fig2.add_subplot(column_9[-1,-1])
         ax_frequency2 = fig2.add_subplot(column_8[-1, -1])
@@ -282,6 +282,16 @@ class JRWFPlotter(Plotter):
                 title='POC: V [.pu]',
                 traces=[('Vref', LW_REF, COL_REF, 1, vref_pu),
                         ('Vpoc', LW_NORM, COL_POC, 2, vpoc_pu), ],
+                min_y_range=0.05,
+                time_axis_on=True,
+            )
+            
+            # Vslack Plotting
+            vslack_pu = df['V_slack_pu'][self.plot_start:self.plot_end][::DECIMATE]
+            self.signal_plot(
+                ax=ax_vslack,
+                title='Slack: V [.pu]',
+                traces=[('Vslack', LW_REF, COL_POC, 1, vslack_pu),],
                 min_y_range=0.05,
                 time_axis_on=True,
             )
@@ -577,13 +587,7 @@ class JRWFPlotter(Plotter):
                 min_y_range=3,
                 time_axis_on=True,
             )
-            self.signal_plot(
-                ax=ax_tap_pos2,
-                title='Tap Position',
-                traces=traces,
-                min_y_range=3,
-                time_axis_on=True,
-            )
+
             ic("breaker plotting")
             # Breakers
             brk_traces = []
