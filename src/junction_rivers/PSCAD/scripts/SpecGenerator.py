@@ -226,7 +226,7 @@ class SpecGenerator():
     # Add Pref_Wind_MW and Pref_BESS_MW info
     def add_p_ref_specs(self, row: pd.DataFrame):
         # from the system inf sheet, get the wf states and make a list of them to run through
-        if self.system_inf.loc["WF States"]["Var Val"] == "all":
+        if self.system_inf.loc["WF States"]["Var Val"] == "ALL":
             wf_states = [self.WTG_PZERO, self.BESS_PMAX, self.BESS_PZERO, self.BESS_PMIN]
         else:
             wf_state_strs = self.system_inf.loc["WF States"]["Var Val"].split("; ")
