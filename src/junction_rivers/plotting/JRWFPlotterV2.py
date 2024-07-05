@@ -140,7 +140,7 @@ class JRWFPlotter(Plotter):
 
         # Construct Layout
         
-        # Page 1: Submission version
+        # Page 1: Main page:  
         layout_main_1 = gridspec.GridSpec(1, 4, figure=fig1)
         column_1 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_1[0])
         column_2 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_1[1])
@@ -148,7 +148,7 @@ class JRWFPlotter(Plotter):
         column_4 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_1[3])
         column_other = gridspec.GridSpecFromSubplotSpec(number_of_misc_plots, 1, subplot_spec=column_4[:number_of_rows - 1])
         
-        # Page 2: Investigation Plots
+        # Page 2: Investigation signals page
         layout_main_2 = gridspec.GridSpec(1, 4, figure=fig2)
         column_5 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_2[0])
         column_6 = gridspec.GridSpecFromSubplotSpec(number_of_rows, 1, subplot_spec=layout_main_2[1])
@@ -1227,7 +1227,7 @@ class JRWFPlotter(Plotter):
                         inner_ax[-1].plot((-d, +d), (1-d, 1+d), **kwargs)
                         inner_ax[-1].plot((-d, +d), (-d, +d), **kwargs)
                     else:
-                        print(f"### marker 33 i = {i}")
+                        # print(f"### marker 33 i = {i}")
                         inner_ax[-1].spines['right'].set_visible(False)
                         inner_ax[-1].spines['left'].set_visible(False)
                         inner_ax[-1].tick_params(axis='y', which='both', left=False, right=False, labelleft=False, labelright=False)

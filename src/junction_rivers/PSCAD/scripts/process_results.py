@@ -85,7 +85,7 @@ def process_results(
             psout = Psout(src_data_path)
             df = psout.to_df()
         except Exception as e:
-            print(f"### psout read failed {e}")
+            print(f"------PSOUT READER FAILED EXCEPTION: {e}")
         
     elif ".pkl" in src_data_path:
         df = pd.read_pickle(src_data_path)
@@ -104,11 +104,13 @@ def process_results(
     with open(src_json_path, 'r') as json_file:
         spec_dict = json.load(json_file)
     
+    '''COMMENTING OUT POST PROCESSING FOR NOW'''
     # Run Postprocessing / Analysis
     try:
         spec_dict, df = per_scenario_postprocessing(spec_dict, df)
-    except:
+    except Exception as e:
         logger.warning("per scenario postprocessing failed")
+        print(f"-------POST PROCESSING FAILED WITH EXCEPTION: {e}")
     
     # Run Plotter Script
     logger.info("Plotting Results...")
@@ -120,14 +122,15 @@ def process_results(
             png_path=png_path,
         )
     except Exception as e:
-        print("#####" + e)
+        print(f"---------PLOTTER FAILED WITH EXCEPTION: {e}")
     
-    ## Add analysis info to data frame
+    # Add analysis info to data frame
     try:
         if ANALYSIS:
             analysis.fdroop(spec_dict["substitutions"], spec_dict, df)
     except Exception as e:
-        print(f'### fdroop Exception: {e}')
+        print(f'---------FDROOP ANALYSIS FAILED WITH EXCEPTION: {e}')
+    
     # Save 
     with open(json_path, 'w') as json_file:
         json.dump(spec_dict,json_file, indent=2)
@@ -147,7 +150,6 @@ def process_results_single_thread(
     delete_src_data: bool = False,
     data_source_extension: str = ".psout",
 ):
-    
     plotter = JRWFPlotter()
     analysis = Analysis()
     pdf_writer = PdfWriter()
@@ -196,7 +198,6 @@ def process_results_single_thread(
                 
                 
                 if file_ext == data_source_extension:
-                    
                     src_data_path = os.path.join(root, file_base_name + data_source_extension)
                     src_json_path = os.path.join(root, file_base_name + ".json")
                     
