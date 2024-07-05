@@ -81,7 +81,6 @@ if __name__ == '__main__':
     ic(args)
 
     volley_size = args.volley_size
-    # TODO
     
     if args.model_path is None:
         print("Please Select Desired OEM Model Path To Run:")

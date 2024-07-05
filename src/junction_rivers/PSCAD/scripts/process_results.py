@@ -26,6 +26,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("process_results")
 logger.setLevel(logging.INFO)
 
+ANALYSIS = 0 ###
 
 def per_scenario_postprocessing(spec_dict: dict, df: pd.DataFrame):
     
@@ -125,7 +126,8 @@ def process_results(
     
     # Add analysis info to data frame
     try:
-        analysis.fdroop(spec_dict["substitutions"], spec_dict, df)
+        if ANALYSIS:
+            analysis.fdroop(spec_dict["substitutions"], spec_dict, df)
     except Exception as e:
         print(f'---------FDROOP ANALYSIS FAILED WITH EXCEPTION: {e}')
     
@@ -172,7 +174,7 @@ def process_results_single_thread(
     # print(f"\nTemp Results Directory located at: \n   {temp_results_dir}")
     os.makedirs(temp_results_dir,exist_ok=True)
     
-    # List of sudies if spec is provided 
+    # List of studies if spec is provided 
     study_list = []
     if spec_path:
         study_list = list(zip(list(spec["DIR"].values), list(spec["File_Name"].values)))
@@ -251,7 +253,8 @@ def process_results_single_thread(
     fdroop_pdf_path = os.path.join(results_dir, "fdroop.pdf")
     
     try:
-        analysis.plot_fdroop(fdroop_pdf_path)
+        if ANALYSIS:
+            analysis.plot_fdroop(fdroop_pdf_path)
     except Exception as e:
         print(f"### fdroop Exceptin: {e}")
             
