@@ -18,10 +18,8 @@ import tempfile
 from rengen.utils.os_utils import make_temp_directory, file_exists_beneath_directory
 from rengen.utils.time_utils import get_date_time_str
 
-MODEL_PATH = "."
-DEFAULT_VOLLEY = 12
+DEFAULT_VOLLEY = 13
 PROJECT_NAME = "JRWF_SMIB"
-
 
 # Custom action class for validation
 class WorkerValidation(argparse.Action):
