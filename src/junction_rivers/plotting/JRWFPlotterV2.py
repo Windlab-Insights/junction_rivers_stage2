@@ -1162,7 +1162,7 @@ class JRWFPlotter(Plotter):
         # Only ad legend if there are labels.
         _, tmplables = ax.get_legend_handles_labels()
         if tmplables and legendon:
-            ax.legend(frameon=False, fontsize='x-small', loc="lower right", bbox_to_anchor=(1.0, 1.0), ncol=6,
+            ax.legend(frameon=False, fontsize='x-small', bbox_to_anchor=(1.0, 1.13), ncol=6,
                     borderpad=0, columnspacing=1, handletextpad=0.3, handlelength=1.2, labelcolor=AXIS_COLOUR)
 
         ax.spines["bottom"].set_color(AXIS_COLOUR)
