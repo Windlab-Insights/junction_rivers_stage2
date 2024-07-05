@@ -42,15 +42,15 @@ class SpecGenerator():
         self.figure_references = pd.read_excel(calc_sheet_path, sheet_name="Figure References", index_col="Figure", header=0)
         
         # Record project information
-        self.v_nom = self.system_inf.loc["POC base Voltage"]["Var Val"]
+        self.v_nom = self.system_inf.loc["POC Base Voltage"]["Var Val"]
         self.f_nom = self.system_inf.loc["Nominal Frequency"]["Var Val"]
-        self.p_nom = self.system_inf.loc["Nominal Power"]["Var Val"]
-        self.q_nom = self.p_nom * 0.395
+        self.p_nom = self.system_inf.loc["Nominal Active Power"]["Var Val"]
+        self.q_nom = self.system_inf.loc["Nominal Reactive Power"]["Var Val"]
         self.s_nom = math.sqrt(self.p_nom**2 + self.q_nom**2)
         self.z_base = self.v_nom**2/self.p_nom
         self.q_set = 0
-        self.v_set = self.system_inf.loc["V_POC"]["Var Val"]
-        self.p_max_bess = 70
+        self.v_set = self.system_inf.loc["Nominal Voltage"]["Var Val"]
+        self.p_max_bess = self.system_inf.loc["BESS Capacity"]["Var Val"]
         self.qv_droop = self.system_inf.loc["Q-V Droop"]["Var Val"]
         self.software = self.system_inf.loc["Software"]["Var Val"]
         try:
@@ -600,22 +600,32 @@ class SpecGenerator():
             time = [13]
             fault_duration = 0.1
         else:
-            # From S5.2.5.5 consider up to 15 faults in up to 5 mins.
-            # Arbitrarily I decided to constrain it to between 5 and 15 faults in 2 to 5 mins.
+            # From S5.2.5.5:
+            # Up to 15 faults in any 5 minute period (arbitrarily I decided to constrain it to between 5 and 15 faults in 2 to 5 mins.)
+            # up to 6 disturbances cause the POC voltage to drop below 50%
+            # minimum clearance from the end of one disturbance and commencement of the next disturbance may be 0 ms
+            # cumulative time that voltage at the connection point is lower than 90% of normal voltage will not exceed 1800 ms
+            # OR the time integral of difference between V dip and normal V when V dip > %90* Vnom will not exceed 1s
             min_no_faults = 5
             max_no_faults = 15
             max_time = 300
             # Choose a ranom number of faults to apply between 5 and 15
             no_faults = random.randint(min_no_faults, max_no_faults)
             # We can specify a minimum time between faults
-            min_time_between_faults = 0.1
-            # By using the integer random sampling method we can control the accuracy.
+            min_time_between_faults = 0
+            # By using the integer random sampling method we can control the level of precision considered.
             accuracy = 0.001
             time_range = range(0, int(min(max_time, row["End Run (s)"])/accuracy), int(min_time_between_faults/accuracy))
             time = random.sample(time_range, k=no_faults)
             time.sort()
             # Convert the list back to seconds.
             time = [item*accuracy for item in time]
+            # Calculate the fault multiplier for which the POC voltage is 50%
+            # TODO
+            no_vdips_gt50 = 0
+            # Calculate the fault multiplier for which the POC voltage is 90%
+            # TODO
+            time_vdips_gt_10 = 0
             # Loop through each time step.
             for i in range(len(time)):
                 fault_type = random.choice(fault_type_options)
@@ -705,6 +715,7 @@ class SpecGenerator():
         (_, _, zs) = Zs
         Udip= Zf/(zs + Zf)
         return Udip
+    
 
 # ##
 # 1: phase A to ground
