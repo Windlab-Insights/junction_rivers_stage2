@@ -19,7 +19,7 @@ from rengen.utils.os_utils import make_temp_directory, file_exists_beneath_direc
 from rengen.utils.time_utils import get_date_time_str
 
 MODEL_PATH = "."
-DEFAULT_VOLLEY = 1
+DEFAULT_VOLLEY = 12
 PROJECT_NAME = "JRWF_SMIB"
 
 
@@ -83,7 +83,6 @@ if __name__ == '__main__':
     ic(args)
 
     volley_size = args.volley_size
-    # TODO
     
     if args.model_path is None:
         print("Please Select Desired OEM Model Path To Run:")

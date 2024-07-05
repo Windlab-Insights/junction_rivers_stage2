@@ -62,8 +62,8 @@ class JRWFPlotter(Plotter):
             png_path: Optional[Union[Path, str]] = None,
             pdf_path: Optional[Union[Path, str]] = None,
     ):
-        ic('plot from df and dict')
-        ic(df["V_POC"].index[-1])
+        ic()
+        ic.disable()
         plt.clf()
         if PLOT_INIT:
             self.plot_start = 0
@@ -71,9 +71,7 @@ class JRWFPlotter(Plotter):
             self.plot_start = float(spec_dict["substitutions"]["TIME_Full_Init_Time_sec"])
         try:
             self.plot_duration = df["V_POC"].index[-1] - self.plot_start
-            ic(self.plot_duration)
             self.plot_end = df["V_POC"].index[-1]
-            ic(self.plot_end)
         except Exception as e:
             print(e)
 
@@ -81,17 +79,13 @@ class JRWFPlotter(Plotter):
         unbalanced = False
         if 'Fault_Type_v' in spec_dict:
             try:
-                ic(spec_dict['Fault_Type_v'])
                 fault_type_numeric_value = pd.to_numeric(spec_dict['Fault_Type_v'])
-                ic(fault_type_numeric_value)
                 fault_type_is_number = np.isfinite(fault_type_numeric_value)
             except (ValueError, TypeError):
                 fault_type_is_number = False
-            ic(fault_type_is_number)
 
             if fault_type_is_number and fault_type_numeric_value != 7:
                 unbalanced = True
-            ic(unbalanced)
 
         # Table Data
         default_table_data = [
@@ -116,7 +110,6 @@ class JRWFPlotter(Plotter):
             ('Xf_Ohms', 'Xf'),
             ('Test_Profile', 'Test Profile'),
         ]
-        ic(default_table_data)
         # Append Optional Tags to Table Data
         for col_name, label in optional_table_information:
             if col_name in spec_dict:
@@ -136,7 +129,6 @@ class JRWFPlotter(Plotter):
         else:
             number_of_rows = 6
             number_of_misc_plots = 5
-        ic(number_of_rows)
         # Page Size and Spacing
         fig1 = plt.figure(facecolor=PRIMARY_COLOUR)
         fig2 = plt.figure(facecolor=PRIMARY_COLOUR)

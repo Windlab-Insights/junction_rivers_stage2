@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("process_results")
 logger.setLevel(logging.INFO)
 
-ANALYSIS = 0
+ANALYSIS = 0 ###
 
 def per_scenario_postprocessing(spec_dict: dict, df: pd.DataFrame):
     

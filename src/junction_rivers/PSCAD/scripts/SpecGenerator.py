@@ -333,8 +333,10 @@ class SpecGenerator():
                 vslack_strs = row["Voltage Deltas (pu)"].split("; ")
                 timestep_strs = row["Time Steps (s)"].split("; ")
                 if 'Voltage Ramp (Hz/s)' in row:
-                    ramp_strs = row["Voltage Ramp (Hz/s)"].split(";")
+                    ramp_strs = row["Voltage Ramp (Hz/s)"].split("; ")
                     for index, vslack_str in enumerate(vslack_strs):
+                        ic(vslack_str)
+                        ic(timestep_strs[index])
                         vslack_profile.read_profile(v_data=vslack_str,t_data=timestep_strs[index],r_data=ramp_strs[index])
                         row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=vslack_profile.deltas[0] + vslack_starting_point,ppoc=ppoc,qpoc=qpoc,Zs=Zs),
                                     'Vslack_pu_v': [delta + vslack_starting_point for delta in vslack_profile.deltas],
@@ -875,10 +877,15 @@ class SpecGenerator():
                 print(f"### {e}")
                 raise CalcSheetError("figure name")
             figure_reference = self.figure_references.loc[fig]
+            ic(figure_reference)
+            ic(figure_reference["Deltas"])
             self.deltas = json.loads(figure_reference["Deltas"])
-            self.time_steps = json.loads(figure_reference["Time_steps"])
+            ic(self.deltas)
+            ic(figure_reference["Time Steps"])
+            self.time_steps = json.loads(figure_reference["Time Steps"])
+            ic(self.time_steps)
             if ramp:
-                self.ramps = json.loads(figure_reference["Ramp"])            
+                self.ramps = figure_reference["Ramp"][1:-1].split(",")
         
         def read_profile(self, v_data: str, t_data: str, r_data=None):
             # manual profile is refered to as [1,2,3]
