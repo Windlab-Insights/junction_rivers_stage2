@@ -12,6 +12,7 @@ import math
 import random
 from icecream import ic
 import itertools
+import json
 
 def module(specs, new_tests: list):
     ic("module")
