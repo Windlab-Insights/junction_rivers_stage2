@@ -1,8 +1,0 @@
-SCR & X/R
-* POC & POC: [POC_SCR_l, POC_X/R_l] [POC_SCR_h, POC_X/R_h]
-* 3 & 6: [3, 6]
-* POC & 6: [POC_SCR_l, 6] [POC_SCR_h, 6]
-* 3 & POC: [3, POC_X/R_l] [3, POC_X/R_h]
-* 3,4 & 6: [3, 6] [4, 6]
-* 3 & 6,7: [3, 6] [3, 7]
-* 3,4 & 6,7: [3,6] [4,6] [3,7] [4,7]
