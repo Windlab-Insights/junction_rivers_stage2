@@ -34,7 +34,6 @@ class SpecGenerator():
         ic(calc_sheet_path)
         ic(spec_path)
         
-                
     def spec_generator (self, calc_sheet_path, spec_path):
         
         checklist = pd.read_excel(calc_sheet_path, sheet_name="Checklist", index_col="Checklist", header=0)
@@ -69,7 +68,6 @@ class SpecGenerator():
                 
                 # Iterate through the tests in the sheet
                 for _, row in tests.iterrows():
-                    ic(row)
                     # Determine if to run the test or not based on th suite selection
                     if self.suite == "None":
                         run_test = row["Action"] == "Yes"
@@ -88,109 +86,112 @@ class SpecGenerator():
                         run_test = run_test and (row["Software"] == "PSSE" or row["Software"] == "Both")
                     # add a line to the code to  actually run the test
                     if run_test:
+                        ic(row)
                         category_formated = index_cat.lower().replace(" ", "_")
                         new_row = self.add_new_row(row, category=category_formated)
                         for row in new_row:
                             spec_df = spec_df.append(row, ignore_index=True)        
         spec_df.to_csv(spec_path)
         
-        
 ################# ADD PARAMS FOR A TEST ################
-    def update_rows(self, specs: list, in_row: dict):
+    def update_rows(self, specs: list, in_row: dict, filename_index: int):
         # if there are no specs to add, then just return the test line as is
         if len(specs) == 0:
             return [in_row]
         # create a new list of tests
         out_rows = []
+        # get the file name index
+        filename = in_row["File_Name"].split("-")
         # for multiple specs, we want to add new tests for each one
-        for index, spec in enumerate(specs):
+        for spec in specs:
             # create a copy of the existing test to update without changing the original one
             temp = deepcopy(in_row)
-            temp.update({'File_Name': f'{in_row["File_Name"]}{index}'})
+            temp.update({'File_Name': f'{filename[0]}-{filename_index}'})
+            filename_index = filename_index + 1
             temp.update(spec)
             out_rows.append(temp) 
-        return out_rows          
+        return out_rows
     
     def add_new_row(self, row: pd.DataFrame, category: str):
         # Initialise a dict with category information and a list of dicts with just the empty dict.
         first_test = dict()
-        first_test.update({'File_Name': f'{category}_test_{row["Test"]}'.replace("-","_")})
+        filename_index = 0
+        first_test.update({'File_Name': f'{category}_test_{str(row["Test"]).replace("-","_")}-{filename_index}'})
         first_test.update({'DIR': category})
         first_test.update({'En_SMIB_init_v': 0})
         first_test.update({'Infinite_Grid_v': 0})
         new_tests = [first_test]
         
         file_infos = self.add_file_info(row)
-        new_tests = self.update_rows(file_infos, first_test)
-        ic(new_tests)
+        new_tests = self.update_rows(file_infos, first_test, filename_index)
         
         out_rows = []
         for new_test in new_tests:
             q_specs = self.add_q_specs(row, new_test)
-            out_rows.extend(self.update_rows(q_specs, new_test))
-        new_tests = out_rows[:]
-        
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(q_specs)
+            out_rows.extend(self.update_rows(q_specs, new_test, filename_index))
+            new_tests = out_rows[:]
         
         out_rows = []
         for new_test in new_tests:
             p_ref_specs = self.add_p_ref_specs(row)
-            out_rows.extend(self.update_rows(p_ref_specs, new_test))
-        new_tests = out_rows[:]
-        
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(p_ref_specs)
+            out_rows.extend(self.update_rows(p_ref_specs, new_test, filename_index))
+            new_tests = out_rows[:]
         
         out_rows = []
         for new_test in new_tests:
             v_specs = self.add_v_specs(row, new_test)
-            out_rows.extend(self.update_rows(v_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(v_specs)
+            out_rows.extend(self.update_rows(v_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
         
         out_rows = []
         for new_test in new_tests:
             freq_specs = self.add_freq_specs(row)
-            out_rows.extend(self.update_rows(freq_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(freq_specs)
+            out_rows.extend(self.update_rows(freq_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
         
         out_rows = []
         for new_test in new_tests:
             vref_specs = self.add_vref_specs(row, new_test)
-            out_rows.extend(self.update_rows(vref_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(vref_specs)
+            out_rows.extend(self.update_rows(vref_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
         
         out_rows = []
         for new_test in new_tests:
             qref_specs = self.add_qref_specs(row, new_test)
-            out_rows.extend(self.update_rows(qref_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(qref_specs)
+            out_rows.extend(self.update_rows(qref_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
         
         out_rows = []
         for new_test in new_tests:
             osc_specs = self.add_osc_specs(row, new_test)
-            out_rows.extend(self.update_rows(osc_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(osc_specs)
+            out_rows.extend(self.update_rows(osc_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
         
         out_rows = []
         for new_test in new_tests:
             phase_specs = self.add_phase_specs(row, new_tests)
-            out_rows.extend(self.update_rows(phase_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(phase_specs)
+            out_rows.extend(self.update_rows(phase_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
         
         out_rows = []
         for new_test in new_tests:
             fault_specs = self.add_fault_specs(row, new_test)
-            out_rows.extend(self.update_rows(fault_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(fault_specs)
+            out_rows.extend(self.update_rows(fault_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
-        
         return new_tests
     
     def add_file_info(self, row: pd.DataFrame):
         row_sect_list = []
+      
         row_sect = dict()
         row_sect =  {
                     'Grouping': '',
@@ -201,24 +202,24 @@ class SpecGenerator():
         scr_and_x2rs = self.read_scr_and_x2r(row)
         for scr_and_x2r in scr_and_x2rs:
             (scr, x2r) = scr_and_x2r
+            temp_sect = row_sect.copy()
             try:
                 scr_vals= json.loads(scr) # If this works, then we have multiple values of SCR in a singal test
-            except:
-                temp_sect = row_sect.copy()
+                if 'Apply Fault (s)' in row:
+                    temp_sect.update({
+                        'Grid_SCR': scr_vals,
+                        'Grid_X2R_v': x2r,
+                        'Grid_MVA_v': [self.calc_fault_level(scr_val) for scr_val in scr_vals],
+                        'Grid_MVA_t': [0, row["Apply Fault (s)"], row["End Run (s)"]],
+                    })
+                else:
+                    raise CalcSheetError("SCRs")
+            except TypeError:
                 temp_sect.update({
                     'Grid_SCR': scr,
                     'Grid_X2R_v': x2r,
                     'Grid_MVA_v': self.calc_fault_level(scr)
                 })
-            else:
-                if 'Apply fault (s)' in row:
-                    temp_sect = row_sect.copy()
-                    temp_sect.update({
-                        'Grid_SCR': scr_vals,
-                        'Grid_X2R_v': x2r,
-                        'Grid_MVA_v': [self.calc_fault_level(scr_val) for scr_val in scr_vals],
-                        'Grid_MVA_t': [0, row["Apply fault (s)"], row["End Run (s)"]],
-                    })
             finally:
                 row_sect_list.append(temp_sect)
         return row_sect_list
@@ -246,10 +247,21 @@ class SpecGenerator():
         row_sect_list = []
         if 'Active Power (pu)' in row:
             for wf_state in wf_states:
+                # scale the reference by the BESS pmax or WT pmax depending on the state
+                if wf_state == self.WTG_PZERO:
+                    p_base = self.p_max_bess
+                else:
+                    p_base = self.p_nom
+                # set a ceiling to ensure we don't go over the maximum P output of the wind farm
+                if wf_state == self.BESS_PMAX:
+                    p_ceil = self.p_nom - self.p_max_bess
+                else:
+                    p_ceil = self.p_nom
+                # add profile
                 if 'Time Steps (s)' in row and 'Pref Deltas (pu)' in row:
                     pref_profile = self.Profile(self.figure_references)
                     pref_profile.read_profile(v_data=row["Pref Deltas (pu)"], t_data=row["Time Steps (s)"])
-                    pref_v = ([(row["Active Power (pu)"] + delta)*self.p_nom for delta in pref_profile.deltas])
+                    pref_v = ([min((row["Active Power (pu)"] + delta)*p_base, p_ceil) for delta in pref_profile.deltas])
                     if wf_state == self.WTG_PZERO:
                         row_sect = {'Pref_Wind_MW_v': 0,
                                     'Pref_BESS_MW_v': pref_v,
@@ -268,8 +280,9 @@ class SpecGenerator():
                                     'Pref_Wind_MW_t': pref_profile.time_steps}
                     else:
                         raise CalcSheetError("wf_state")
+                # add value
                 else:
-                    pref_v = row["Active Power (pu)"]*self.p_nom
+                    pref_v = min(row["Active Power (pu)"]*p_base, p_ceil)
                     if wf_state == self.WTG_PZERO:
                         row_sect = {'Pref_Wind_MW_v': 0,
                                     'Pref_BESS_MW_v': pref_v}
@@ -316,13 +329,13 @@ class SpecGenerator():
         ppoc = (pref_wind + pref_bess)/self.p_nom
         qpoc = new_tests["Init_Qpoc_pu_v"]
         Zs = self.calc_grid_impedence(pu=True, fl=new_tests["Grid_MVA_v"], x2r=new_tests["Grid_X2R_v"])[0]
-        # Vgrid/Vslack is specified, calculate V POC
-        if 'Slack Voltage (pu)' in row:
-            row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=row["Slack Voltage (pu)"], ppoc=ppoc, qpoc=qpoc, Zs=Zs),
-                        'Vslack_pu_v': row["Slack Voltage (pu)"]}
-            row_sect_list = [row_sect]
+        # # Vgrid/Vslack is specified, calculate V POC
+        # if 'Slack Voltage (pu)' in row:
+        #     row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=row["Slack Voltage (pu)"], ppoc=ppoc, qpoc=qpoc, Zs=Zs),
+        #                 'Vslack_pu_v': row["Slack Voltage (pu)"]}
+        #     row_sect_list = [row_sect]
         # Vpoc is specified, calculate Vgrid/Vslack
-        elif 'Voltage  POC (pu)' in row:
+        if 'Voltage  POC (pu)' in row:
             row_sect = {'Init_Vpoc_pu_v': row["Voltage POC (pu)"],
                         'Vslack_pu_v': self.calc_vslack_from_vpoc(vpoc=row["Voltage POC (pu)"], ppoc=ppoc, qpoc=qpoc, Zs=Zs)}
             row_sect_list = [row_sect]
@@ -448,7 +461,7 @@ class SpecGenerator():
         row_sect_list = []
         row_sect = dict()
         if 'Time Steps (s)' in row:
-            if 'Oscs Freqs (Hz)' in row:
+            if 'Osc Freqs (Hz)' in row:
                 if 'Osc Magnitude (pu)' in row:
                     if 'Step (Hz)' in row:
                         if 'Osc Phase (deg)' in row:
@@ -460,7 +473,7 @@ class SpecGenerator():
                             timing_sig = [0, time_steps[0], time_steps[1], row["End Run (s)"]]
                             # split the freq steps and osc freqs into different test sets
                             freq_steps_strs = str(row["Step (Hz)"]).split("; ")
-                            osc_freq_strs = str(row["Oscs Freqs (Hz)"]).split("; ")
+                            osc_freq_strs = str(row["Osc Freqs (Hz)"]).split("; ")
                             # check that the number of test groups is the same and raise an error if not
                             if not len(osc_freq_strs) == len(freq_steps_strs):
                                 raise CalcSheetError("time steps and freq steps")
@@ -497,12 +510,12 @@ class SpecGenerator():
         row_sect = dict()
         row_sect_list = []
         if 'Angle Change (deg)' in row:
-            if 'Apply event (s)' in row:
+            if 'Apply Event (s)' in row:
                 # Create a list of each phase which must be applied in a different test
-                phase_strs = row["Angle Change"].split("; ")
+                phase_strs = row["Angle Change (deg)"].split("; ")
                 for phase_str in phase_strs:
                     row_sect = {"Grid_phase_degs_v": [0, float(phase_str), float(phase_str)],
-                                "Grid_phase_degs_t": [0, row["Apply event (s)"], row["End Run (s)"]]}
+                                "Grid_phase_degs_t": [0, row["Apply Event (s)"], row["End Run (s)"]]}
                     row_sect_list.append(row_sect)
             else:
                 raise CalcSheetError("apply event")
@@ -581,7 +594,6 @@ class SpecGenerator():
                     raise CalcSheetError("fault duration")
             else:
                 raise CalcSheetError("fault impedance")
-        ic(row_sect_list)
         return row_sect_list
         
 ##################### MFRT GENERATOR #######################
@@ -612,7 +624,7 @@ class SpecGenerator():
             # Choose a ranom number of faults to apply between 5 and 15
             no_faults = random.randint(min_no_faults, max_no_faults)
             # We can specify a minimum time between faults
-            min_time_between_faults = 0
+            min_time_between_faults = 0.001
             # By using the integer random sampling method we can control the level of precision considered.
             accuracy = 0.001
             time_range = range(0, int(min(max_time, row["End Run (s)"])/accuracy), int(min_time_between_faults/accuracy))
@@ -680,7 +692,7 @@ class SpecGenerator():
         (_, _, grid_impedance) = grid_impedance
         grid_impedance = grid_impedance*self.z_base
         fault_impedance = fault_distance*grid_impedance*fault_voltage/abs(1 - fault_voltage)
-            
+        
         return fault_impedance
     
     def read_fault_multiplier(self, zf_str: str):
@@ -715,7 +727,6 @@ class SpecGenerator():
         (_, _, zs) = Zs
         Udip= Zf/(zs + Zf)
         return Udip
-    
 
 # ##
 # 1: phase A to ground

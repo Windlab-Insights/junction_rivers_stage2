@@ -288,10 +288,12 @@ class JRWFPlotter(Plotter):
             
             # Vslack Plotting
             vslack_pu = df['V_slack_pu'][self.plot_start:self.plot_end][::DECIMATE]
+            vslack_set = df['V_slack_set'][self.plot_start:self.plot_end][::DECIMATE]
             self.signal_plot(
                 ax=ax_vslack,
                 title='Slack: V [.pu]',
-                traces=[('Vslack', LW_REF, COL_POC, 1, vslack_pu),],
+                traces=[('Vslack', LW_NORM, COL_POC, 1, vslack_pu),
+                        ('Vslack_set', LW_REF, COL_REF, 1, vslack_set), ],
                 min_y_range=0.05,
                 time_axis_on=True,
             )
@@ -691,7 +693,7 @@ class JRWFPlotter(Plotter):
             print(e)
 
         if unbalanced:
-            # WTG V ABC PHASE Plotting
+            # WTG POI V ABC PHASE Plotting
             traces_a = []
             traces_b = []
             traces_c = []
@@ -702,6 +704,50 @@ class JRWFPlotter(Plotter):
                                  df[f'Vb_rms_WT'][self.plot_start:self.plot_end][::DECIMATE]))
             traces_c.append(("", LW_NORM, COL_SIG_2, i,
                                  df[f'Vc_rms_WT'][self.plot_start:self.plot_end][::DECIMATE]))
+            ymins = []
+            ymaxs = []
+            for row, phase, traces in zip(
+                    [3, 4, 5],
+                    ['A', 'B', 'C'],
+                    [traces_a, traces_b, traces_c]):
+                ax = ax_wtg_poi[row]
+                self.signal_plot(
+                    ax=ax,
+                    title='WTG POI: Phase ' + phase + ' Voltage [.pu]',
+                    traces=traces,
+                    min_y_range=0.1,
+                    time_axis_on=True,
+                )
+                ymin, ymax = ax.get_ylim()
+                ymins.append(ymin)
+                ymaxs.append(ymax)
+            for row in [3, 4, 5]:
+                ax = ax_wtg_poi[row]
+                # ax.hlines(lvrt_th_in, 0, plot_duration, linestyle='-', lw=0.5, color='0.5', zorder=1, label="FRT-in")
+                # ax.hlines(hvrt_th_in, 0, plot_duration, linestyle='-', lw=0.5, color='0.5', zorder=1)
+                # ax.hlines(lvrt_th_out, 0, plot_duration, linestyle='-.', lw=0.5, color='0.5', zorder=1)
+                # ax.hlines(hvrt_th_out, 0, plot_duration, linestyle='-.', lw=0.5, color='0.5', zorder=1, label="FRT-out")
+                ax.set_ylim(min(ymins), max(ymaxs))
+                
+                
+            # WTG Terminals V ABC PHASE Plotting
+            traces_a = []
+            traces_b = []
+            traces_c = []
+            # signal_label, lw, colour, order, signal
+            traces_a.append(("", LW_NORM, COL_SIG_2, i,
+                                 df[f'Va_rms_term1'][self.plot_start:self.plot_end][::DECIMATE]),)
+            traces_b.append(("", LW_NORM, COL_SIG_2, i,
+                                 df[f'Vb_rms_term1'][self.plot_start:self.plot_end][::DECIMATE]))
+            traces_c.append(("", LW_NORM, COL_SIG_2, i,
+                                 df[f'Vc_rms_term1'][self.plot_start:self.plot_end][::DECIMATE]))
+            
+            traces_a.append(("", LW_NORM, COL_SIG_3, i,
+                                 df[f'Va_rms_term2'][self.plot_start:self.plot_end][::DECIMATE]),)
+            traces_b.append(("", LW_NORM, COL_SIG_3, i,
+                                 df[f'Vb_rms_term2'][self.plot_start:self.plot_end][::DECIMATE]))
+            traces_c.append(("", LW_NORM, COL_SIG_3, i,
+                                 df[f'Vc_rms_term2'][self.plot_start:self.plot_end][::DECIMATE]))
             ymins = []
             ymaxs = []
             for row, phase, traces in zip(
@@ -872,11 +918,9 @@ class JRWFPlotter(Plotter):
             # BESS V ABC PHASE Plotting
             if unbalanced:
 
-                traces_a = [('BESS', LW_NORM, COL_SIG_2, 4, df['Va_rms_BESS'][self.plot_start:self.plot_end][::DECIMATE]), ]
-
-                traces_b = [('BESS', LW_NORM, COL_SIG_2, 4, df['Vb_rms_BESS'][self.plot_start:self.plot_end][::DECIMATE]),]
-                
-                traces_c = [('BESS', LW_NORM, COL_SIG_2, 4, df['Vc_rms_BESS'][self.plot_start:self.plot_end][::DECIMATE]),]
+                traces_a = [('BESS', LW_NORM, COL_SIG_2, 4, df['Va_rms_term3'][self.plot_start:self.plot_end][::DECIMATE]), ]
+                traces_b = [('BESS', LW_NORM, COL_SIG_2, 4, df['Vb_rms_term3'][self.plot_start:self.plot_end][::DECIMATE]),]
+                traces_c = [('BESS', LW_NORM, COL_SIG_2, 4, df['Vc_rms_term3'][self.plot_start:self.plot_end][::DECIMATE]),]
 
                 ymins = []
                 ymaxs = []
@@ -900,6 +944,34 @@ class JRWFPlotter(Plotter):
 
                 for row in [3, 4, 5]:
                     ax = ax_bess[row]
+                    ax.set_ylim(min(ymins), max(ymaxs))
+                    
+                traces_a = [('BESS', LW_NORM, COL_SIG_2, 4, df['Va_rms_BESS'][self.plot_start:self.plot_end][::DECIMATE]), ]
+                traces_b = [('BESS', LW_NORM, COL_SIG_2, 4, df['Vb_rms_BESS'][self.plot_start:self.plot_end][::DECIMATE]),]
+                traces_c = [('BESS', LW_NORM, COL_SIG_2, 4, df['Vc_rms_BESS'][self.plot_start:self.plot_end][::DECIMATE]),]
+
+                ymins = []
+                ymaxs = []
+                for row, phase, traces in zip(
+                        [3, 4, 5],
+                        ['A', 'B', 'C'],
+                        [traces_a, traces_b, traces_c]):
+                    ax = ax_bess_poi[row]
+
+                    self.signal_plot(
+                        ax=ax,
+                        title='BESS: Phase ' + phase + ' Voltage [.pu]',
+                        traces=traces,
+                        min_y_range=0.1,
+                        time_axis_on=True,
+                    )
+
+                    ymin, ymax = ax.get_ylim()
+                    ymins.append(ymin)
+                    ymaxs.append(ymax)
+
+                for row in [3, 4, 5]:
+                    ax = ax_bess_poi[row]
                     ax.set_ylim(min(ymins), max(ymaxs))
 
             # BESS Id Plotting
