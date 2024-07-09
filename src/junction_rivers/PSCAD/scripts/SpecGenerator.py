@@ -35,7 +35,7 @@ class SpecGenerator():
         ic(spec_path)
         
     def spec_generator (self, calc_sheet_path, spec_path):
-        
+        # Read in spec sheet info from the Config sheet as data frames
         checklist = pd.read_excel(calc_sheet_path, sheet_name="Checklist", index_col="Checklist", header=0)
         self.system_inf = pd.read_excel(calc_sheet_path, sheet_name="System_inf", index_col="Var name", header=0)
         self.figure_references = pd.read_excel(calc_sheet_path, sheet_name="Figure References", index_col="Figure", header=0)
@@ -56,6 +56,7 @@ class SpecGenerator():
             self.suite = self.system_inf.loc["Suite"]["Var Val"]
         except KeyError:
             self.suite = "None"
+        self.vgrid_change_method = self.system_inf.loc["Vgrid"]["Var Val"]
         
         # Initialise data frame for the output spec data
         spec_df = pd.DataFrame()
@@ -68,7 +69,7 @@ class SpecGenerator():
                 
                 # Iterate through the tests in the sheet
                 for _, row in tests.iterrows():
-                    # Determine if to run the test or not based on th suite selection
+                    # Determine if to run the test or not based on the suite selection
                     if self.suite == "None":
                         run_test = row["Action"] == "Yes"
                     elif self.suite == "Reduced_DMAT":
@@ -84,7 +85,7 @@ class SpecGenerator():
                         run_test = run_test and (row["Software"] == "PSCAD" or row["Software"] == "Both")
                     elif self.software == "PSSE":
                         run_test = run_test and (row["Software"] == "PSSE" or row["Software"] == "Both")
-                    # add a line to the code to  actually run the test
+                    # add rows to the spec sheet to actually run the test
                     if run_test:
                         ic(row)
                         category_formated = index_cat.lower().replace(" ", "_")
@@ -94,6 +95,7 @@ class SpecGenerator():
         spec_df.to_csv(spec_path)
         
 ################# ADD PARAMS FOR A TEST ################
+    # for rows which have just been added to the new spec sheet, add new information and split into new rows if needed
     def update_rows(self, specs: list, in_row: dict, filename_index: int):
         # if there are no specs to add, then just return the test line as is
         if len(specs) == 0:
@@ -112,9 +114,12 @@ class SpecGenerator():
             out_rows.append(temp) 
         return out_rows
     
+    # for each test in the config file to be added, add the test information one at a time.
     def add_new_row(self, row: pd.DataFrame, category: str):
         # Initialise a dict with category information and a list of dicts with just the empty dict.
         first_test = dict()
+        # remove columns where the cell is blank
+        row = row.dropna()
         filename_index = 0
         first_test.update({'File_Name': f'{category}_test_{str(row["Test"]).replace("-","_")}-{filename_index}'})
         first_test.update({'DIR': category})
@@ -125,10 +130,11 @@ class SpecGenerator():
         file_infos = self.add_file_info(row)
         new_tests = self.update_rows(file_infos, first_test, filename_index)
         
+        # for each spec sheet row which has been added (a new run), add the new information.
         out_rows = []
         for new_test in new_tests:
             q_specs = self.add_q_specs(row, new_test)
-            filename_index = int(new_test["File_Name"].split("-")[1]) * len(q_specs)
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(q_specs) # pass in the filename index to ensure unique file names
             out_rows.extend(self.update_rows(q_specs, new_test, filename_index))
             new_tests = out_rows[:]
         
@@ -189,6 +195,7 @@ class SpecGenerator():
         new_tests = out_rows[:]
         return new_tests
     
+    # add general test information including run time, scr, and x/r levels.
     def add_file_info(self, row: pd.DataFrame):
         row_sect_list = []
       
@@ -304,7 +311,8 @@ class SpecGenerator():
             row_sect_list = [row_sect]
         return row_sect_list
     
-    def add_q_specs(self, row: pd.DataFrame, new_tests: list):
+    # if reactive power is specified, then add this in.
+    def add_q_specs(self, row: pd.DataFrame, new_test: dict):
         row_sect = dict()
         # Reactive power is specified
         if 'Reactive Power (pu)' in row:
@@ -313,27 +321,22 @@ class SpecGenerator():
             row_sect = {'Init_Qpoc_pu_v': 0}
         return [row_sect]
             
-    def add_v_specs(self, row: pd.DataFrame, new_tests: list):
+    def add_v_specs(self, row: pd.DataFrame, new_test: dict):
         row_sect_list = []
         row_sect = dict()
         # Use data which has already been added to this test to calculate the values to be added
         # If the active power reference is a list, then use the first one as a reference
-        if type(new_tests["Pref_Wind_MW_v"]) == list:
-            pref_wind = new_tests["Pref_Wind_MW_v"][0]
+        if type(new_test["Pref_Wind_MW_v"]) == list:
+            pref_wind = new_test["Pref_Wind_MW_v"][0]
         else:
-            pref_wind = new_tests["Pref_Wind_MW_v"]
-        if type(new_tests["Pref_BESS_MW_v"]) == list:
-            pref_bess = new_tests["Pref_BESS_MW_v"][0]
+            pref_wind = new_test["Pref_Wind_MW_v"]
+        if type(new_test["Pref_BESS_MW_v"]) == list:
+            pref_bess = new_test["Pref_BESS_MW_v"][0]
         else:
-            pref_bess = new_tests["Pref_BESS_MW_v"]
+            pref_bess = new_test["Pref_BESS_MW_v"]
         ppoc = (pref_wind + pref_bess)/self.p_nom
-        qpoc = new_tests["Init_Qpoc_pu_v"]
-        Zs = self.calc_grid_impedence(pu=True, fl=new_tests["Grid_MVA_v"], x2r=new_tests["Grid_X2R_v"])[0]
-        # # Vgrid/Vslack is specified, calculate V POC
-        # if 'Slack Voltage (pu)' in row:
-        #     row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=row["Slack Voltage (pu)"], ppoc=ppoc, qpoc=qpoc, Zs=Zs),
-        #                 'Vslack_pu_v': row["Slack Voltage (pu)"]}
-        #     row_sect_list = [row_sect]
+        qpoc = new_test["Init_Qpoc_pu_v"]
+        Zs = self.calc_grid_impedence(pu=True, fl=new_test["Grid_MVA_v"], x2r=new_test["Grid_X2R_v"])
         # Vpoc is specified, calculate Vgrid/Vslack
         if 'Voltage  POC (pu)' in row:
             row_sect = {'Init_Vpoc_pu_v': row["Voltage POC (pu)"],
@@ -341,39 +344,66 @@ class SpecGenerator():
             row_sect_list = [row_sect]
         # There is a Vgrid profile in DMAT tests 149 - 166
         elif 'Event' in row and row["Event"] == "Vgrid":
-            vslack_profile = self.Profile(self.figure_references)
-            vslack_profile.read_profile(v_data=row["Delta (pu)"], t_data=row["Time Steps (s)"])
-            # vslack starting point is calculated form Vpoc
+            vgrid_profile = self.Profile(self.figure_references)
+            vgrid_profile.read_profile(v_data=row["Delta (pu)"], t_data=row["Time Steps (s)"])
+            # vslack starting point is calculated from Vpoc
             vslack_starting_point = self.calc_vslack_from_vpoc(vpoc=self.v_set, ppoc=ppoc, qpoc=qpoc, Zs=Zs)
-            row_sect = {'Init_Vpoc_pu_v': self.v_set,
-                        'Vslack_pu_v': [delta + vslack_starting_point for delta in vslack_profile.deltas],
-                        'Vslack_pu_t': vslack_profile.time_steps}
+            if self.vgrid_change_method == "Vslack":
+                # vgrid change is applied via vslack
+                row_sect = {'Init_Vpoc_pu_v': self.v_set,
+                            'Vslack_pu_v': [delta + vslack_starting_point for delta in vgrid_profile.deltas],
+                            'Vslack_pu_t': vgrid_profile.time_steps}
+            elif self.vgrid_change_method == "POC disturbance":
+                # vgrid change is applied at the POC via a dummy transformer
+                row_sect = {'Init_Vpoc_pu_v': self.v_set,
+                            'Vslack_pu_v': vslack_starting_point,
+                            'Vpoc_disturbance_pu_v': vgrid_profile.deltas,
+                            'Vpoc_disturbance_pu_t': vgrid_profile.time_steps}
+            else:
+                raise CalcSheetError("vgrid method")
             row_sect_list = [row_sect]
         # General voltage profile
-        elif 'Voltage Deltas (pu)' in row:
+        elif 'Vgrid Deltas (pu)' in row:
             if 'Time Steps (s)' in row:
-                vslack_profile = self.Profile(self.figure_references)
+                vgrid_profile = self.Profile(self.figure_references)
                 vslack_starting_point = self.calc_vslack_from_vpoc(vpoc=self.v_set, ppoc=ppoc, qpoc=qpoc, Zs=Zs)
-                # split vlack into a list of profiles
-                vslack_strs = row["Voltage Deltas (pu)"].split("; ")
+                # split vgrid into a list of profiles
+                vgrid_strs = row["Vgrid Deltas (pu)"].split("; ")
                 timestep_strs = row["Time Steps (s)"].split("; ")
-                if 'Voltage Ramp (Hz/s)' in row:
-                    ramp_strs = row["Voltage Ramp (Hz/s)"].split("; ")
-                    for index, vslack_str in enumerate(vslack_strs):
-                        ic(vslack_str)
-                        ic(timestep_strs[index])
-                        vslack_profile.read_profile(v_data=vslack_str,t_data=timestep_strs[index],r_data=ramp_strs[index])
-                        row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=vslack_profile.deltas[0] + vslack_starting_point,ppoc=ppoc,qpoc=qpoc,Zs=Zs),
-                                    'Vslack_pu_v': [delta + vslack_starting_point for delta in vslack_profile.deltas],
-                                    'Vslack_pu_t': vslack_profile.time_steps,
-                                    'Vslack_pu_r': vslack_profile.ramps}
+                if 'Vgrid Ramp (Hz/s)' in row: # add ramp information
+                    ramp_strs = row["Vgrid Ramp (Hz/s)"].split("; ")
+                    for index, vgrid_str in enumerate(vgrid_strs):
+                        vgrid_profile.read_profile(v_data=vgrid_str,t_data=timestep_strs[index],r_data=ramp_strs[index])
+                        if self.vgrid_change_method == "Vslack":
+                            # vgrid change is applied via vslack
+                            row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=vgrid_profile.deltas[0] + vslack_starting_point,ppoc=ppoc,qpoc=qpoc,Zs=Zs),
+                                        'Vslack_pu_v': [delta + vslack_starting_point for delta in vgrid_profile.deltas],
+                                        'Vslack_pu_t': vgrid_profile.time_steps,
+                                        'Vslack_pu_r': vgrid_profile.ramps}
+                        elif self.vgrid_change_method == "POC disturbance":
+                            # vgrid change is applied at the POC via a dummy transformer
+                            row_sect = {'Init_Vpoc_pu_v': self.v_set,
+                                        'Vslack_pu_v': vslack_starting_point,
+                                        'Vpoc_disturbance_pu_v': vgrid_profile.deltas,
+                                        'Vpoc_disturbance_pu_t': vgrid_profile.time_steps,
+                                        'Vpoc_disturbance_pu_r': vgrid_profile.ramps}
+                        else:
+                            raise CalcSheetError("vgrid method")
                         row_sect_list.append(row_sect)
-                else:
-                    for index, vslack_str in enumerate(vslack_strs):
-                        vslack_profile.read_profile(v_data=vslack_str,t_data=timestep_strs[index])
-                        row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=vslack_profile.deltas[0] + vslack_starting_point,ppoc=ppoc,qpoc=qpoc,Zs=Zs),
-                                    'Vslack_pu_v': [delta + vslack_starting_point for delta in vslack_profile.deltas],
-                                    'Vslack_pu_t': vslack_profile.time_steps}
+                else: # no ramp given
+                    for index, vgrid_str in enumerate(vgrid_strs):
+                        vgrid_profile.read_profile(v_data=vgrid_str,t_data=timestep_strs[index])
+                        if self.vgrid_change_method == "Vslack":
+                            row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=vgrid_profile.deltas[0] + vslack_starting_point,ppoc=ppoc,qpoc=qpoc,Zs=Zs),
+                                        'Vslack_pu_v': [delta + vslack_starting_point for delta in vgrid_profile.deltas],
+                                        'Vslack_pu_t': vgrid_profile.time_steps}
+                        elif self.vgrid_change_method == "POC disturbance":
+                            row_sect = {'Init_Vpoc_pu_v': self.v_set,
+                                        'Vslack_pu_v': vslack_starting_point,
+                                        'Vpoc_disturbance_pu_v': vgrid_profile.deltas,
+                                        'Vpoc_disturbance_pu_t': vgrid_profile.time_steps}
+                        else:
+                            raise CalcSheetError("vgrid method")
                         row_sect_list.append(row_sect)
             else:
                 raise CalcSheetError("time steps")
@@ -415,29 +445,29 @@ class SpecGenerator():
             row_sect_list = [{'Grid_Hz_v': self.f_nom}]
         return row_sect_list
     
-    def add_qref_specs(self, row: pd.DataFrame, new_tests: list):
+    def add_qref_specs(self, row: pd.DataFrame, new_test: dict):
         row_sect = dict()
         if 'Event' in row and row["Event"] == "Qref":
             qref_profile = self.Profile(self.figure_references)
             qref_profile.read_profile(v_data="Delta (pu)", t_data="Time Steps (s)")
-            q_starting_point = new_tests["Init_Qpoc_pu_v"]
+            q_starting_point = new_test["Init_Qpoc_pu_v"]
             row_sect = {'Qref_MVAr_v': [(delta + q_starting_point) * self.q_nom for delta in qref_profile.deltas],
                         'Qref_MVAr_t': qref_profile.time_steps}
         return [row_sect]
     
-    def add_vref_specs(self, row: pd.DataFrame, new_tests: list):
+    def add_vref_specs(self, row: pd.DataFrame, new_test: list):
         row_sect = dict()
         if 'Event' in row and row["Event"] == "Vref":
             vref_profile = self.Profile(self.figure_references)
             vref_profile.read_profile(v_data=row["Delta (pu)"], t_data=row["Time Steps (s)"])
-            v_starting_point = new_tests["Init_Vpoc_pu_v"]
+            v_starting_point = new_test["Init_Vpoc_pu_v"]
             row_sect = {'Vref_pu_v': [delta + v_starting_point for delta in vref_profile.deltas],
                         'Vref_pu_t': vref_profile.time_steps}
             vref_init = v_starting_point + vref_profile.deltas[0]
         # We might want to calculate Vref based off the given Qpoc and Vpoc values
-        elif 'Init_Vpoc_pu_v' in new_tests and 'Init_Qpoc_pu_v' in new_tests:
-            vpoc = new_tests["Init_Vpoc_pu_v"]
-            qpoc = new_tests["Init_Qpoc_pu_v"]
+        elif 'Init_Vpoc_pu_v' in new_test and 'Init_Qpoc_pu_v' in new_test:
+            vpoc = new_test["Init_Vpoc_pu_v"]
+            qpoc = new_test["Init_Qpoc_pu_v"]
             row_sect = {'Vref_pu_v': self.calc_vref_from_qpoc_and_vpoc(qpoc=qpoc/self.q_nom,vpoc=vpoc)}
             vref_init = self.calc_vref_from_qpoc_and_vpoc(qpoc=qpoc/self.q_nom,vpoc=vpoc)
         # if not otherwise specifed, then set the vref value to 1.034 (#### or 1 pu?)
@@ -445,19 +475,19 @@ class SpecGenerator():
             row_sect = {'Vref_pu_v': self.v_set}
             vref_init = self.v_set
         # Update the qpoc value based off vref and vpoc    
-        if 'Init_Vpoc_pu_v' in new_tests and not 'Init_Qpoc_pu_v' in new_tests:
-            vpoc = new_tests["Init_Vpoc_pu_v"]
+        if 'Init_Vpoc_pu_v' in new_test and not 'Init_Qpoc_pu_v' in new_test:
+            vpoc = new_test["Init_Vpoc_pu_v"]
             vref = vref_init
             row_sect.update({'Init_Qpoc_pu_v': self.calc_qpoc_from_vref_and_vpoc(vref=vref,vpoc=vpoc)})
         # Update the vpoc value based off vref and qpoc
-        elif not 'Init_Vpoc_pu_v' in new_tests and 'Init_Qpoc_pu_v' in new_tests:
-            qpoc = new_tests["Init_Qpoc_pu_v"]
+        elif not 'Init_Vpoc_pu_v' in new_test and 'Init_Qpoc_pu_v' in new_test:
+            qpoc = new_test["Init_Qpoc_pu_v"]
             vref = vref_init
             row_sect.update({'Init_Vpoc_pu_v': self.calc_vpoc_from_qpoc_and_vref(qpoc=qpoc,vref=vref)})
             
         return [row_sect]
     
-    def add_osc_specs(self, row: pd.DataFrame, new_tests: list):
+    def add_osc_specs(self, row: pd.DataFrame, new_test: dict):
         row_sect_list = []
         row_sect = dict()
         if 'Time Steps (s)' in row:
@@ -506,7 +536,7 @@ class SpecGenerator():
                 raise CalcSheetError('Osc frequency')
         return row_sect_list
     
-    def add_phase_specs(self, row: pd.DataFrame, new_tests: pd.DataFrame):
+    def add_phase_specs(self, row: pd.DataFrame, new_test: dict):
         row_sect = dict()
         row_sect_list = []
         if 'Angle Change (deg)' in row:
@@ -529,76 +559,85 @@ class SpecGenerator():
         except ValueError:
             return False
     
-    def add_fault_specs(self, row: pd.DataFrame, new_tests: list):
+    def add_fault_specs(self, row: pd.DataFrame, new_test: dict):
         row_sect = dict()
         row_sect_list = []
-        if 'Apply Fault (s)' in row:
-            if 'Fault Impedance (pu)' in row:
-                if 'Fault Duration (s)' in row:
-                    fault_duration = str(row["Fault Duration (s)"])
-                    if self.is_number(fault_duration):
-                        # Temporary over voltage specfied as "Yf = jXc (U_Ov = 1.15pu)"
-                        if "Yf = jXc" in row["Fault Impedance (pu)"] and "U_Ov =" in row["Fault Impedance (pu)"]:
-                            # 'Yf = jXc (U_Ov = 1.15pu)' --> ['Yf', 'jXc (U_Ov', '1.15pu') ]
-                            fault_voltage = row["Fault Impedance (pu)"].split("=")
-                            # '1.15pu)' --> ['1.15', ')']
-                            fault_voltage = fault_voltage[2].split("pu")[0]
-                            grid_impedance = self.calc_grid_impedence(pu=1, fl=new_tests["Grid_MVA_v"], x2r=new_tests["Grid_X2R_v"])
-                            # we are expecting that there is only one fault level for TOV tests
-                            if len(grid_impedance) > 1:
-                                raise CalcSheetError("grid impedance")
-                            else:
-                                grid_impedance = grid_impedance[0]
-                            fault_impedance = self.calc_fault_impedance(fault_voltage=float(fault_voltage), fault_distance=1, grid_impedance=grid_impedance)
-                            row_sect = {'TOV_Shunt_uF_v': 1/(fault_impedance * self.f_nom * 2 * math.pi) * 10**6,
-                                        'TOV_Timing_Signal_t': f'[0, {row["Apply Fault (s)"]}, {row["Apply Fault (s)"] + row["Fault Duration (s)"]}]',
-                                        'TOV_Timing_Signal_v': f'[0, 1, 0]'}
-                            row_sect_list = [row_sect]
-                        else:
-                            # if fault type is not specified then we assume 3 phase to ground
-                            fault_type = row["Fault Type"] if 'Fault Type' in row else "3PHG"
-                            x2r = new_tests["Grid_X2R_v"]
-                            # Enable fault studies should be set to one to allow fault to be added
-                            # Fault strategy=1 means that the "Zs2Zf method" is used which means that the impedance is calculated as a ratio of the grid impedance.
-                            # The alternative is fault startegy =0 which means the fault impedance is calculated based off Udip in PSCAD.
-                            row_sect = {'Enable_Fault_Studies_v': 1,
-                                        'Fault_Strategy_v': 1,
-                                        'Fault_X2R_v': x2r,
-                                        'Fault_Type_v': self.get_fault_code(fault_type),
-                                        'Fault_Timing_Signal_t': f'[0, {row["Apply Fault (s)"]}, {row["Apply Fault (s)"] + row["Fault Duration (s)"]}]',
-                                        'Fault_Timing_Signal_v': f'[0, 1, 0]'}
-                            # Resistive faults
-                            if row["Fault Impedance (pu)"] == "Zf=Rf = 1, 5 and 10 Ohm":
-                            # Note this is not flexible: Only option for multiple fault impedances is "Zf=Rf = 1, 5 and 10 Ohm" and it must look like this exactly
-                                R_ohms = [1, 5, 10]
-                                for R_ohm in R_ohms:
-                                    row_sect_copy = deepcopy(row_sect)
-                                    row_sect_copy.update({'Zf2Zs_v': 0, 
-                                                     'Rf_Offset_ohms_v': R_ohm,
-                                                     'Xf_Offset_ohms_v': 0})
-                                    row_sect_list.append(row_sect_copy)
-                            # Fault impedance specified like "Zf=0", "Zf=Zs", or "Zf=2xZf"
-                            else:
-                                row_sect.update({'Zf2Zs_v': self.read_fault_multiplier(row["Fault Impedance (pu)"])})
-                                row_sect_list.append(row_sect)
-                    # multiple fault ride through
-                    elif fault_duration in ["S1", "S2", "S3", "S4", "S5"]:
-                        ic(row["Fault Duration (s)"])
-                        row_sect = {'Enable_Fault_Studies_v': 1,
-                                    'Fault_Strategy_v': 0,}
-                        row_sect.update(self.mfrt_seq(row, new_tests))
-                        row_sect_list.append(row_sect)
+        if 'Apply Fault (s)' in row and 'Fault Duration (s)' in row:
+            fault_duration = str(row["Fault Duration (s)"])
+            if self.is_number(fault_duration):
+                grid_impedance = self.calc_grid_impedence(pu=1, fl=new_test["Grid_MVA_v"], x2r=new_test["Grid_X2R_v"])
+                # If both fault impedance and fault voltage are specified then we use fault voltage
+                if 'Applied Fault Voltage (pu)' in row:
+                    fault_impedance = self.calc_fault_impedance(fault_voltage=float(row["Applied Fault Voltage (pu)"]), fault_distance=1, grid_impedance=grid_impedance)
+                    fault_impedance = fault_impedance/self.z_base
+                    # if fault type is not specified then we assume 3 phase to ground
+                    fault_type = row["Fault Type"] if 'Fault Type' in row else "3PHG"
+                    row_sect = {'Enable_Fault_Studies_v': 1,
+                                'Fault_Strategy_v': 1,
+                                'Fault_X2R_v': new_test["Grid_X2R_v"],
+                                'Fault_Type_v': self.get_fault_code(fault_type),
+                                'Fault_Timing_Signal_t': f'[0, {row["Apply Fault (s)"]}, {row["Apply Fault (s)"] + row["Fault Duration (s)"]}]',
+                                'Fault_Timing_Signal_v': f'[0, 1, 0]',
+                                'Zf2Zs_v': self.calc_fault_multiplier_from_fault_impedance(fault_impedance=fault_impedance,grid_impedance=grid_impedance)}
+                    row_sect_list = [row_sect]
+                elif 'Fault Impedance (pu)' in row:
+                    # Temporary over voltage specfied as "Yf = jXc (U_Ov = 1.15pu)"
+                    if "Yf = jXc" in row["Fault Impedance (pu)"] and "U_Ov =" in row["Fault Impedance (pu)"]:
+                        # 'Yf = jXc (U_Ov = 1.15pu)' --> ['Yf', 'jXc (U_Ov', '1.15pu') ]
+                        fault_voltage = row["Fault Impedance (pu)"].split("=")
+                        # '1.15pu)' --> ['1.15', ')']
+                        fault_voltage = fault_voltage[2].split("pu")[0]
+                        fault_impedance = self.calc_fault_impedance(fault_voltage=float(fault_voltage), fault_distance=1, grid_impedance=grid_impedance)
+                        row_sect = {'TOV_Shunt_uF_v': 1/(fault_impedance * self.f_nom * 2 * math.pi) * 10**6,
+                                    'TOV_Timing_Signal_t': f'[0, {row["Apply Fault (s)"]}, {row["Apply Fault (s)"] + row["Fault Duration (s)"]}]',
+                                    'TOV_Timing_Signal_v': f'[0, 1, 0]'}
+                        row_sect_list = [row_sect]
                     else:
-                        raise CalcSheetError("fault duration")
-                else:
-                    raise CalcSheetError("fault duration")
-            else:
-                raise CalcSheetError("fault impedance")
+                        # if fault type is not specified then we assume 3 phase to ground
+                        fault_type = row["Fault Type"] if 'Fault Type' in row else "3PHG"
+                        # Enable fault studies should be set to one to allow fault to be added
+                        # Fault strategy=1 means that the "Zs2Zf method" is used which means that the impedance is calculated as a ratio of the grid impedance.
+                        # The alternative is fault startegy =0 which means the fault impedance is calculated based off Udip in PSCAD.
+                        row_sect = {'Enable_Fault_Studies_v': 1,
+                                    'Fault_Strategy_v': 1,
+                                    'Fault_X2R_v': new_test["Grid_X2R_v"],
+                                    'Fault_Type_v': self.get_fault_code(fault_type),
+                                    'Fault_Timing_Signal_t': f'[0, {row["Apply Fault (s)"]}, {row["Apply Fault (s)"] + row["Fault Duration (s)"]}]',
+                                    'Fault_Timing_Signal_v': f'[0, 1, 0]'}
+                        # Resistive faults
+                        if row["Fault Impedance (pu)"] == "Zf=Rf = 1, 5 and 10 Ohm":
+                        # Note this is not flexible: Only option for multiple fault impedances is "Zf=Rf = 1, 5 and 10 Ohm" and it must look like this exactly
+                            R_ohms = [1, 5, 10]
+                            for R_ohm in R_ohms:
+                                row_sect_copy = deepcopy(row_sect)
+                                row_sect_copy.update({'Zf2Zs_v': 0, 
+                                                    'Rf_Offset_ohms_v': R_ohm,
+                                                    'Xf_Offset_ohms_v': 0})
+                                row_sect_list.append(row_sect_copy)
+                        # Fault impedance specified like "Zf=0", "Zf=Zs", or "Zf=2xZf"
+                        else:
+                            row_sect.update({'Zf2Zs_v': self.read_fault_multiplier(row["Fault Impedance (pu)"], Zs=grid_impedance)})
+                            row_sect_list.append(row_sect)
+                else: # neither fault impedance or fault voltage are specified.
+                    raise CalcSheetError("fault impedance or fault voltage")
+            # multiple fault ride through
+            elif fault_duration in ["S1", "S2", "S3", "S4", "S5"]:
+                ic(row["Fault Duration (s)"])
+                row_sect = {'Enable_Fault_Studies_v': 1,
+                            'Fault_Strategy_v': 0,}
+                row_sect.update(self.mfrt_seq(row, new_test))
+                row_sect_list.append(row_sect)
+            else: # fault duration is not a number and not  and mfrt code
+                raise CalcSheetError("fault duration")
+        elif 'Apply Fault (s)' in row:
+            raise CalcSheetError("fault duration")
+        elif 'Fault Duration (s)' in row:
+            raise CalcSheetError("apply fault")
         return row_sect_list
         
 ##################### MFRT GENERATOR #######################
 
-    def mfrt_seq(self, row: pd.DataFrame, new_tests: list):
+    def mfrt_seq(self, row: pd.DataFrame, new_test: dict):
         random.seed(row["Test"])
         fault_info = []
         fault_type_options = ["3PHG", "2PHG", "1PHG", "L-L"]
@@ -646,7 +685,7 @@ class SpecGenerator():
                 fault_multiplier = random.randint(0, 5)
                 fault_info.append((fault_type, time[i], fault_duration, fault_multiplier))
         row_sect = self.generate_mfrt(fault_info)
-        row_sect.update({'Fault_X2R_v': new_tests["Grid_X2R_v"]})
+        row_sect.update({'Fault_X2R_v': new_test["Grid_X2R_v"]})
         return row_sect
     
     def generate_mfrt(self, fault_info: list):
@@ -688,14 +727,18 @@ class SpecGenerator():
         return t_end_ramp 
         
 ##################### FAULT CALCULATIONS #######################
+    def calc_fault_multiplier_from_fault_impedance(self, fault_impedance: float, grid_impedance: tuple):
+        (_, _, Zs) = grid_impedance
+        fault_multiplier = fault_impedance/Zs
+        return fault_multiplier
+        
     def calc_fault_impedance(self, fault_voltage: float, fault_distance: float, grid_impedance: tuple):
         (_, _, grid_impedance) = grid_impedance
         grid_impedance = grid_impedance*self.z_base
         fault_impedance = fault_distance*grid_impedance*fault_voltage/abs(1 - fault_voltage)
-        
         return fault_impedance
     
-    def read_fault_multiplier(self, zf_str: str):
+    def read_fault_multiplier(self, zf_str: str, Zs: tuple):
         # can't set fault impedance to 0 so set it to a very low number.
         min_fault_impedance = 0.000000001
         str_list = zf_str.split("=")
@@ -717,6 +760,9 @@ class SpecGenerator():
                 if len(str_list) == 2 and str_list[1] == "Zs" and self.is_number(str_list[0]):
                     # "2xZs" str_list = [2, Zs]
                     multiplier = float(str_list[0])
+                elif self.is_number(str_list[1]):
+                    Zf = float(str_list[1])
+                    multiplier = self.calc_fault_multiplier_from_fault_impedance(fault_impedance=Zf, grid_impedance=Zs)
                 else:
                     raise CalcSheetError("fault impedance")
         else:
@@ -803,20 +849,15 @@ class SpecGenerator():
         return fault_level
     
     def calc_grid_impedence(self, pu: bool, fl, x2r: float):
-        Zs_list = []
-        if type(fl) == float:
-            fl = [fl]
-        for fl_v in fl:
-            z = self.v_nom**2 / fl_v
-            r = z / math.sqrt(1+x2r**2)
-            x = r * x2r
-            if pu == True:
-                r = r/self.z_base
-                x = x/self.z_base
-                z = z/self.z_base
-            l = x / (2 * self.f_nom * math.pi)
-            Zs_list.append((r,x,z))
-        return Zs_list
+        z = self.v_nom**2 / fl
+        r = z / math.sqrt(1+x2r**2)
+        x = r * x2r
+        if pu == True:
+            r = r/self.z_base
+            x = x/self.z_base
+            z = z/self.z_base
+        l = x / (2 * self.f_nom * math.pi)
+        return (r,x,z)
         
     def calc_vslack_from_vpoc(self, vpoc: float, ppoc: float, qpoc: float, Zs: tuple):
         spoc = math.sqrt(ppoc**2 + qpoc**2)
