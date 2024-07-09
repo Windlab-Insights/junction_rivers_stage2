@@ -75,7 +75,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', "--missing-only", action='store_true', default=False, help="Given a results directory, only runs tests that do not currently exist.")
     parser.add_argument("--store-init-traces", action='store_true', default=True, help="If set, the init. period will NOT be removed from the output traces.")
     parser.add_argument("--minimum-traces", action='store_true', default=False, help="If set, the only the minimum traces needed for the grid-plot will be stored in the pkl file.")
-    parser.add_argument("-p", '--model-path', required=True)
+    parser.add_argument("-p", '--model-path', type=str, default=None)
     args = parser.parse_args()
 
     ic(args)
@@ -85,7 +85,7 @@ if __name__ == '__main__':
     
     if args.model_path is None:
         print("Please Select Desired OEM Model Path To Run:")
-        model_path = prompt_for_multiple_filepaths(prompt_title="Select Model Path", initial_dir="G:\Junction_Rivers\JRWF_PSCAD_Models")
+        model_path = prompt_for_directory_path(prompt_title="Select Model Path", initial_dir="G:\Junction_Rivers\JRWF_PSCAD_Models")
     else: 
         model_path = args.model_path
     
