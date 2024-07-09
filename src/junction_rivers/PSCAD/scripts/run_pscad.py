@@ -79,6 +79,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     ic(args)
+    time_start = time.time()
 
     volley_size = args.volley_size
     
@@ -196,7 +197,8 @@ if __name__ == '__main__':
     )
     
     print("Finished Run.")
-    
+    time_end = time.time()
+    print(f"Duration of run = {time_end-time_start}")
     pool.close()
     pool.join()
     
