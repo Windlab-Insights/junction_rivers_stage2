@@ -98,7 +98,7 @@ if __name__ == '__main__':
     file_paths = []
     if args.spec_path is None:
         print("Please Select Specs To Run:")
-        file_paths = prompt_for_multiple_filepaths(prompt_title="Select Spec Files.", initial_dir=model_path) #os.getcwd())
+        file_paths = prompt_for_multiple_filepaths(prompt_title="Select Spec Files.", initial_dir=os.path.join(model_path,"specs")) #os.getcwd())
     else:
         file_paths = [args.spec_path]
     for file_path in file_paths:
