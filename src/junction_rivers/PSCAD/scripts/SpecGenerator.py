@@ -34,26 +34,24 @@ class SpecGenerator():
         ic(calc_sheet_path)
         ic(spec_path)
         
-                
     def spec_generator (self, calc_sheet_path, spec_path):
         
         checklist = pd.read_excel(calc_sheet_path, sheet_name="Checklist", index_col="Checklist", header=0)
-        ic(checklist)
         self.system_inf = pd.read_excel(calc_sheet_path, sheet_name="System_inf", index_col="Var name", header=0)
-        ic(self.system_inf)
         self.figure_references = pd.read_excel(calc_sheet_path, sheet_name="Figure References", index_col="Figure", header=0)
         
         # Record project information
-        self.v_nom = self.system_inf.loc["POC base Voltage"]["Var Val"]
+        self.v_nom = self.system_inf.loc["POC Base Voltage"]["Var Val"]
         self.f_nom = self.system_inf.loc["Nominal Frequency"]["Var Val"]
-        self.p_nom = self.system_inf.loc["Nominal Power"]["Var Val"]
-        self.q_nom = self.p_nom * 0.395
+        self.p_nom = self.system_inf.loc["Nominal Active Power"]["Var Val"]
+        self.q_nom = self.system_inf.loc["Nominal Reactive Power"]["Var Val"]
         self.s_nom = math.sqrt(self.p_nom**2 + self.q_nom**2)
         self.z_base = self.v_nom**2/self.p_nom
         self.q_set = 0
-        self.v_set = self.system_inf.loc["V_POC"]["Var Val"]
-        self.p_max_bess = 70
+        self.v_set = self.system_inf.loc["Nominal Voltage"]["Var Val"]
+        self.p_max_bess = self.system_inf.loc["BESS Capacity"]["Var Val"]
         self.qv_droop = self.system_inf.loc["Q-V Droop"]["Var Val"]
+        self.software = self.system_inf.loc["Software"]["Var Val"]
         try:
             self.suite = self.system_inf.loc["Suite"]["Var Val"]
         except KeyError:
@@ -64,16 +62,13 @@ class SpecGenerator():
         
         # Iterrate through the categories as recorded in the checklist
         for index_cat, category in checklist.iterrows():
-            ic(index_cat)
-            ic(category)
             if category.loc["Action"] == "Yes":
                 tests = pd.read_excel(calc_sheet_path, sheet_name=index_cat, header=0)
                 ic(tests)
                 
                 # Iterate through the tests in the sheet
                 for _, row in tests.iterrows():
-                    
-                    # Determine if to run the test or not
+                    # Determine if to run the test or not based on th suite selection
                     if self.suite == "None":
                         run_test = row["Action"] == "Yes"
                     elif self.suite == "Reduced_DMAT":
@@ -84,117 +79,119 @@ class SpecGenerator():
                         run_test = row["Suite"] == "CSR"
                     else:
                         raise CalcSheetError("test suite")
-                    
+                    # Determine if to run the test based on the software which the test is designed for
+                    if self.software == "PSCAD":
+                        run_test = run_test and (row["Software"] == "PSCAD" or row["Software"] == "Both")
+                    elif self.software == "PSSE":
+                        run_test = run_test and (row["Software"] == "PSSE" or row["Software"] == "Both")
+                    # add a line to the code to  actually run the test
                     if run_test:
+                        ic(row)
                         category_formated = index_cat.lower().replace(" ", "_")
                         new_row = self.add_new_row(row, category=category_formated)
                         for row in new_row:
-                            spec_df = spec_df.append(row, ignore_index=True)
-                        
-                        
+                            spec_df = spec_df.append(row, ignore_index=True)        
         spec_df.to_csv(spec_path)
         
-        
 ################# ADD PARAMS FOR A TEST ################
-    def update_rows(self, specs: list, in_row: dict):
-        ic("update_rows")
-        ic(specs)
+    def update_rows(self, specs: list, in_row: dict, filename_index: int):
         # if there are no specs to add, then just return the test line as is
         if len(specs) == 0:
             return [in_row]
         # create a new list of tests
         out_rows = []
+        # get the file name index
+        filename = in_row["File_Name"].split("-")
         # for multiple specs, we want to add new tests for each one
-        for index, spec in enumerate(specs):
+        for spec in specs:
             # create a copy of the existing test to update without changing the original one
             temp = deepcopy(in_row)
-            temp.update({'File_Name': f'{in_row["File_Name"]}{index}'})
+            temp.update({'File_Name': f'{filename[0]}-{filename_index}'})
+            filename_index = filename_index + 1
             temp.update(spec)
             out_rows.append(temp) 
-        return out_rows          
+        return out_rows
     
     def add_new_row(self, row: pd.DataFrame, category: str):
-        ic('add_new_row')
         # Initialise a dict with category information and a list of dicts with just the empty dict.
         first_test = dict()
-        first_test.update({'File_Name': f'{category}_test_{row["Test"]}'.replace("-","_")})
+        filename_index = 0
+        first_test.update({'File_Name': f'{category}_test_{str(row["Test"]).replace("-","_")}-{filename_index}'})
         first_test.update({'DIR': category})
         first_test.update({'En_SMIB_init_v': 0})
         first_test.update({'Infinite_Grid_v': 0})
         new_tests = [first_test]
         
         file_infos = self.add_file_info(row)
-        new_tests = self.update_rows(file_infos, first_test)
-        ic(new_tests)
+        new_tests = self.update_rows(file_infos, first_test, filename_index)
         
         out_rows = []
         for new_test in new_tests:
             q_specs = self.add_q_specs(row, new_test)
-            out_rows.extend(self.update_rows(q_specs, new_test))
-        new_tests = out_rows[:]
-        
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(q_specs)
+            out_rows.extend(self.update_rows(q_specs, new_test, filename_index))
+            new_tests = out_rows[:]
         
         out_rows = []
         for new_test in new_tests:
-            p_ref_specs = self.add_p_ref_specs(row, self.BESS_PZERO)
-            out_rows.extend(self.update_rows(p_ref_specs, new_test))
-        new_tests = out_rows[:]
-        
+            p_ref_specs = self.add_p_ref_specs(row)
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(p_ref_specs)
+            out_rows.extend(self.update_rows(p_ref_specs, new_test, filename_index))
+            new_tests = out_rows[:]
         
         out_rows = []
         for new_test in new_tests:
             v_specs = self.add_v_specs(row, new_test)
-            out_rows.extend(self.update_rows(v_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(v_specs)
+            out_rows.extend(self.update_rows(v_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
         
         out_rows = []
         for new_test in new_tests:
             freq_specs = self.add_freq_specs(row)
-            out_rows.extend(self.update_rows(freq_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(freq_specs)
+            out_rows.extend(self.update_rows(freq_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
         
         out_rows = []
         for new_test in new_tests:
             vref_specs = self.add_vref_specs(row, new_test)
-            out_rows.extend(self.update_rows(vref_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(vref_specs)
+            out_rows.extend(self.update_rows(vref_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
         
         out_rows = []
         for new_test in new_tests:
             qref_specs = self.add_qref_specs(row, new_test)
-            out_rows.extend(self.update_rows(qref_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(qref_specs)
+            out_rows.extend(self.update_rows(qref_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
         
         out_rows = []
         for new_test in new_tests:
             osc_specs = self.add_osc_specs(row, new_test)
-            out_rows.extend(self.update_rows(osc_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(osc_specs)
+            out_rows.extend(self.update_rows(osc_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
         
         out_rows = []
         for new_test in new_tests:
             phase_specs = self.add_phase_specs(row, new_tests)
-            out_rows.extend(self.update_rows(phase_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(phase_specs)
+            out_rows.extend(self.update_rows(phase_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
         
         out_rows = []
         for new_test in new_tests:
             fault_specs = self.add_fault_specs(row, new_test)
-            out_rows.extend(self.update_rows(fault_specs, new_test))
+            filename_index = int(new_test["File_Name"].split("-")[1]) * len(fault_specs)
+            out_rows.extend(self.update_rows(fault_specs, new_test, filename_index))
         new_tests = out_rows[:]
-        
-        
         return new_tests
     
     def add_file_info(self, row: pd.DataFrame):
-        ic('add_file_info')
         row_sect_list = []
+      
         row_sect = dict()
         row_sect =  {
                     'Grouping': '',
@@ -205,80 +202,109 @@ class SpecGenerator():
         scr_and_x2rs = self.read_scr_and_x2r(row)
         for scr_and_x2r in scr_and_x2rs:
             (scr, x2r) = scr_and_x2r
+            temp_sect = row_sect.copy()
             try:
                 scr_vals= json.loads(scr) # If this works, then we have multiple values of SCR in a singal test
-            except:
-                temp_sect = row_sect.copy()
+                if 'Apply Fault (s)' in row:
+                    temp_sect.update({
+                        'Grid_SCR': scr_vals,
+                        'Grid_X2R_v': x2r,
+                        'Grid_MVA_v': [self.calc_fault_level(scr_val) for scr_val in scr_vals],
+                        'Grid_MVA_t': [0, row["Apply Fault (s)"], row["End Run (s)"]],
+                    })
+                else:
+                    raise CalcSheetError("SCRs")
+            except TypeError:
                 temp_sect.update({
                     'Grid_SCR': scr,
                     'Grid_X2R_v': x2r,
                     'Grid_MVA_v': self.calc_fault_level(scr)
                 })
-            else:
-                if 'Apply fault (s)' in row:
-                    temp_sect = row_sect.copy()
-                    temp_sect.update({
-                        'Grid_SCR': scr_vals,
-                        'Grid_X2R_v': x2r,
-                        'Grid_MVA_v': [self.calc_fault_level(scr_val) for scr_val in scr_vals],
-                        'Grid_MVA_t': [0, row["Apply fault (s)"], row["End Run (s)"]],
-                    })
             finally:
                 row_sect_list.append(temp_sect)
-        ic(row_sect_list)
         return row_sect_list
     
     # Add Pref_Wind_MW and Pref_BESS_MW info
-    def add_p_ref_specs(self, row: pd.DataFrame, wf_state: int):
-        ic('add_p_ref_specs')
+    def add_p_ref_specs(self, row: pd.DataFrame):
+        # from the system inf sheet, get the wf states and make a list of them to run through
+        if self.system_inf.loc["WF States"]["Var Val"] == "ALL":
+            wf_states = [self.WTG_PZERO, self.BESS_PMAX, self.BESS_PZERO, self.BESS_PMIN]
+        else:
+            wf_state_strs = self.system_inf.loc["WF States"]["Var Val"].split("; ")
+            wf_states = []
+            for wf_state_str in wf_state_strs:
+                if wf_state_str == "WTG PZERO":
+                    wf_states.append(self.WTG_PZERO)
+                elif wf_state_str == "BESS PMAX":
+                    wf_states.append(self.BESS_PMAX)
+                elif wf_state_str == "BESS PZERO":
+                    wf_states.append(self.BESS_PZERO)
+                elif wf_state_str == "BESS PMIN":
+                    wf_states.append(self.BESS_PMIN)
+                else:
+                    raise CalcSheetError("wf state")
         row_sect = dict()
+        row_sect_list = []
         if 'Active Power (pu)' in row:
-            if 'Time Steps (s)' in row and 'Pref Deltas (pu)' in row:
-                pref_profile = self.Profile(self.figure_references)
-                pref_profile.read_profile(v_data=row["Pref Deltas (pu)"], t_data=row["Time Steps (s)"])
-                pref_v = ([(row["Active Power (pu)"] + delta)*self.p_nom for delta in pref_profile.deltas])
+            for wf_state in wf_states:
+                # scale the reference by the BESS pmax or WT pmax depending on the state
                 if wf_state == self.WTG_PZERO:
-                    row_sect = {'Pref_Wind_MW_v': 0,
-                                'Pref_BESS_MW_v': pref_v,
-                                'Pref_BESS_MW_t': pref_profile.time_steps}
-                elif wf_state == self.BESS_PMAX:
-                    row_sect = {'Pref_Wind_MW_v': pref_v,
-                                'Pref_BESS_MW_v': self.p_max_bess,
-                                'Pref_Wind_MW_t': pref_profile.time_steps}
-                elif wf_state == self.BESS_PZERO:
-                    row_sect = {'Pref_Wind_MW_v': pref_v,
-                                'Pref_BESS_MW_v': 0,
-                                'Pref_Wind_MW_t': pref_profile.time_steps}
-                elif wf_state == self.BESS_PMIN:
-                    row_sect = {'Pref_Wind_MW_v': pref_v,
-                                'Pref_BESS_MW_v': -self.p_max_bess,
-                                'Pref_Wind_MW_t': pref_profile.time_steps}
+                    p_base = self.p_max_bess
                 else:
-                    raise CalcSheetError("wf_state")
-            else:
-                pref_v = row["Active Power (pu)"]*self.p_nom
-                if wf_state == self.WTG_PZERO:
-                    row_sect = {'Pref_Wind_MW_v': 0,
-                                'Pref_BESS_MW_v': pref_v}
-                elif wf_state == self.BESS_PMAX:
-                    row_sect = {'Pref_Wind_MW_v': pref_v,
-                                'Pref_BESS_MW_v': self.p_max_bess}
-                elif wf_state == self.BESS_PZERO:
-                    row_sect = {'Pref_Wind_MW_v': pref_v,
-                                'Pref_BESS_MW_v': 0}
-                elif wf_state == self.BESS_PMIN:
-                    row_sect = {'Pref_Wind_MW_v': pref_v,
-                                'Pref_BESS_MW_v': -self.p_max_bess}
+                    p_base = self.p_nom
+                # set a ceiling to ensure we don't go over the maximum P output of the wind farm
+                if wf_state == self.BESS_PMAX:
+                    p_ceil = self.p_nom - self.p_max_bess
                 else:
-                    raise CalcSheetError("wf_state")
+                    p_ceil = self.p_nom
+                # add profile
+                if 'Time Steps (s)' in row and 'Pref Deltas (pu)' in row:
+                    pref_profile = self.Profile(self.figure_references)
+                    pref_profile.read_profile(v_data=row["Pref Deltas (pu)"], t_data=row["Time Steps (s)"])
+                    pref_v = ([min((row["Active Power (pu)"] + delta)*p_base, p_ceil) for delta in pref_profile.deltas])
+                    if wf_state == self.WTG_PZERO:
+                        row_sect = {'Pref_Wind_MW_v': 0,
+                                    'Pref_BESS_MW_v': pref_v,
+                                    'Pref_BESS_MW_t': pref_profile.time_steps}
+                    elif wf_state == self.BESS_PMAX:
+                        row_sect = {'Pref_Wind_MW_v': pref_v,
+                                    'Pref_BESS_MW_v': self.p_max_bess,
+                                    'Pref_Wind_MW_t': pref_profile.time_steps}
+                    elif wf_state == self.BESS_PZERO:
+                        row_sect = {'Pref_Wind_MW_v': pref_v,
+                                    'Pref_BESS_MW_v': 0,
+                                    'Pref_Wind_MW_t': pref_profile.time_steps}
+                    elif wf_state == self.BESS_PMIN:
+                        row_sect = {'Pref_Wind_MW_v': pref_v,
+                                    'Pref_BESS_MW_v': -self.p_max_bess,
+                                    'Pref_Wind_MW_t': pref_profile.time_steps}
+                    else:
+                        raise CalcSheetError("wf_state")
+                # add value
+                else:
+                    pref_v = min(row["Active Power (pu)"]*p_base, p_ceil)
+                    if wf_state == self.WTG_PZERO:
+                        row_sect = {'Pref_Wind_MW_v': 0,
+                                    'Pref_BESS_MW_v': pref_v}
+                    elif wf_state == self.BESS_PMAX:
+                        row_sect = {'Pref_Wind_MW_v': pref_v,
+                                    'Pref_BESS_MW_v': self.p_max_bess}
+                    elif wf_state == self.BESS_PZERO:
+                        row_sect = {'Pref_Wind_MW_v': pref_v,
+                                    'Pref_BESS_MW_v': 0}
+                    elif wf_state == self.BESS_PMIN:
+                        row_sect = {'Pref_Wind_MW_v': pref_v,
+                                    'Pref_BESS_MW_v': -self.p_max_bess}
+                    else:
+                        raise CalcSheetError("wf_state")
+                row_sect_list.append(row_sect)
         else:
             row_sect = {'Pref_Wind_MW_v': 0,
                         'Pref_BESS_MW_v': 0}
-        ic(row_sect)
-        return [row_sect]
+            row_sect_list = [row_sect]
+        return row_sect_list
     
     def add_q_specs(self, row: pd.DataFrame, new_tests: list):
-        ic("add_q_specs")
         row_sect = dict()
         # Reactive power is specified
         if 'Reactive Power (pu)' in row:
@@ -288,7 +314,6 @@ class SpecGenerator():
         return [row_sect]
             
     def add_v_specs(self, row: pd.DataFrame, new_tests: list):
-        ic('add_v_specs')
         row_sect_list = []
         row_sect = dict()
         # Use data which has already been added to this test to calculate the values to be added
@@ -304,13 +329,13 @@ class SpecGenerator():
         ppoc = (pref_wind + pref_bess)/self.p_nom
         qpoc = new_tests["Init_Qpoc_pu_v"]
         Zs = self.calc_grid_impedence(pu=True, fl=new_tests["Grid_MVA_v"], x2r=new_tests["Grid_X2R_v"])[0]
-        # Vgrid/Vslack is specified, calculate V POC
-        if 'Slack Voltage (pu)' in row:
-            row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=row["Slack Voltage (pu)"], ppoc=ppoc, qpoc=qpoc, Zs=Zs),
-                        'Vslack_pu_v': row["Slack Voltage (pu)"]}
-            row_sect_list = [row_sect]
+        # # Vgrid/Vslack is specified, calculate V POC
+        # if 'Slack Voltage (pu)' in row:
+        #     row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=row["Slack Voltage (pu)"], ppoc=ppoc, qpoc=qpoc, Zs=Zs),
+        #                 'Vslack_pu_v': row["Slack Voltage (pu)"]}
+        #     row_sect_list = [row_sect]
         # Vpoc is specified, calculate Vgrid/Vslack
-        elif 'Voltage  POC (pu)' in row:
+        if 'Voltage  POC (pu)' in row:
             row_sect = {'Init_Vpoc_pu_v': row["Voltage POC (pu)"],
                         'Vslack_pu_v': self.calc_vslack_from_vpoc(vpoc=row["Voltage POC (pu)"], ppoc=ppoc, qpoc=qpoc, Zs=Zs)}
             row_sect_list = [row_sect]
@@ -356,11 +381,9 @@ class SpecGenerator():
             row_sect = {'Init_Vpoc_pu_v': self.v_set,
                         'Vslack_pu_v': self.calc_vslack_from_vpoc(vpoc=self.v_set, ppoc=ppoc, qpoc=qpoc, Zs=Zs)}
             row_sect_list = [row_sect]
-        ic(row_sect)
         return row_sect_list
     
     def add_freq_specs(self, row: pd.DataFrame):
-        ic('add_feq_specs')
         row_sect = dict()
         row_sect_list = []
         if 'Freq Deltas (Hz)' in row:
@@ -393,7 +416,6 @@ class SpecGenerator():
         return row_sect_list
     
     def add_qref_specs(self, row: pd.DataFrame, new_tests: list):
-        ic("add_qref_specs")
         row_sect = dict()
         if 'Event' in row and row["Event"] == "Qref":
             qref_profile = self.Profile(self.figure_references)
@@ -404,7 +426,6 @@ class SpecGenerator():
         return [row_sect]
     
     def add_vref_specs(self, row: pd.DataFrame, new_tests: list):
-        ic("add_vref_specs")
         row_sect = dict()
         if 'Event' in row and row["Event"] == "Vref":
             vref_profile = self.Profile(self.figure_references)
@@ -414,9 +435,9 @@ class SpecGenerator():
                         'Vref_pu_t': vref_profile.time_steps}
             vref_init = v_starting_point + vref_profile.deltas[0]
         # We might want to calculate Vref based off the given Qpoc and Vpoc values
-        elif 'Init_Vpoc_pu_v' in new_tests and 'Init_Qpoc_MVAr_v' in new_tests:
+        elif 'Init_Vpoc_pu_v' in new_tests and 'Init_Qpoc_pu_v' in new_tests:
             vpoc = new_tests["Init_Vpoc_pu_v"]
-            qpoc = new_tests["Init_Qpoc_MVAr_v"]
+            qpoc = new_tests["Init_Qpoc_pu_v"]
             row_sect = {'Vref_pu_v': self.calc_vref_from_qpoc_and_vpoc(qpoc=qpoc/self.q_nom,vpoc=vpoc)}
             vref_init = self.calc_vref_from_qpoc_and_vpoc(qpoc=qpoc/self.q_nom,vpoc=vpoc)
         # if not otherwise specifed, then set the vref value to 1.034 (#### or 1 pu?)
@@ -424,13 +445,13 @@ class SpecGenerator():
             row_sect = {'Vref_pu_v': self.v_set}
             vref_init = self.v_set
         # Update the qpoc value based off vref and vpoc    
-        if 'Init_Vpoc_pu_v' in new_tests and not 'Init_Qpoc_MVAr_v' in new_tests:
+        if 'Init_Vpoc_pu_v' in new_tests and not 'Init_Qpoc_pu_v' in new_tests:
             vpoc = new_tests["Init_Vpoc_pu_v"]
             vref = vref_init
-            row_sect.update({'Init_Qpoc_MVAr_v': self.calc_qpoc_from_vref_and_vpoc(vref=vref,vpoc=vpoc)})
+            row_sect.update({'Init_Qpoc_pu_v': self.calc_qpoc_from_vref_and_vpoc(vref=vref,vpoc=vpoc)})
         # Update the vpoc value based off vref and qpoc
-        elif not 'Init_Vpoc_pu_v' in new_tests and 'Init_Qpoc_MVAr_v' in new_tests:
-            qpoc = new_tests["Init_Qpoc_MVAr_v"]
+        elif not 'Init_Vpoc_pu_v' in new_tests and 'Init_Qpoc_pu_v' in new_tests:
+            qpoc = new_tests["Init_Qpoc_pu_v"]
             vref = vref_init
             row_sect.update({'Init_Vpoc_pu_v': self.calc_vpoc_from_qpoc_and_vref(qpoc=qpoc,vref=vref)})
             
@@ -440,7 +461,7 @@ class SpecGenerator():
         row_sect_list = []
         row_sect = dict()
         if 'Time Steps (s)' in row:
-            if 'Oscs Freqs (Hz)' in row:
+            if 'Osc Freqs (Hz)' in row:
                 if 'Osc Magnitude (pu)' in row:
                     if 'Step (Hz)' in row:
                         if 'Osc Phase (deg)' in row:
@@ -452,7 +473,7 @@ class SpecGenerator():
                             timing_sig = [0, time_steps[0], time_steps[1], row["End Run (s)"]]
                             # split the freq steps and osc freqs into different test sets
                             freq_steps_strs = str(row["Step (Hz)"]).split("; ")
-                            osc_freq_strs = str(row["Oscs Freqs (Hz)"]).split("; ")
+                            osc_freq_strs = str(row["Osc Freqs (Hz)"]).split("; ")
                             # check that the number of test groups is the same and raise an error if not
                             if not len(osc_freq_strs) == len(freq_steps_strs):
                                 raise CalcSheetError("time steps and freq steps")
@@ -486,16 +507,15 @@ class SpecGenerator():
         return row_sect_list
     
     def add_phase_specs(self, row: pd.DataFrame, new_tests: pd.DataFrame):
-        ic("add_phase_specs")
         row_sect = dict()
         row_sect_list = []
         if 'Angle Change (deg)' in row:
-            if 'Apply event (s)' in row:
+            if 'Apply Event (s)' in row:
                 # Create a list of each phase which must be applied in a different test
-                phase_strs = row["Angle Change"].split("; ")
+                phase_strs = row["Angle Change (deg)"].split("; ")
                 for phase_str in phase_strs:
                     row_sect = {"Grid_phase_degs_v": [0, float(phase_str), float(phase_str)],
-                                "Grid_phase_degs_t": [0, row["Apply event (s)"], row["End Run (s)"]]}
+                                "Grid_phase_degs_t": [0, row["Apply Event (s)"], row["End Run (s)"]]}
                     row_sect_list.append(row_sect)
             else:
                 raise CalcSheetError("apply event")
@@ -510,7 +530,6 @@ class SpecGenerator():
             return False
     
     def add_fault_specs(self, row: pd.DataFrame, new_tests: list):
-        ic("add_fault_specs")
         row_sect = dict()
         row_sect_list = []
         if 'Apply Fault (s)' in row:
@@ -575,13 +594,11 @@ class SpecGenerator():
                     raise CalcSheetError("fault duration")
             else:
                 raise CalcSheetError("fault impedance")
-        ic(row_sect_list)
         return row_sect_list
         
 ##################### MFRT GENERATOR #######################
 
     def mfrt_seq(self, row: pd.DataFrame, new_tests: list):
-        ic('mfrt_seq')
         random.seed(row["Test"])
         fault_info = []
         fault_type_options = ["3PHG", "2PHG", "1PHG", "L-L"]
@@ -595,25 +612,32 @@ class SpecGenerator():
             time = [13]
             fault_duration = 0.1
         else:
-            # From S5.2.5.5 consider up to 15 faults in up to 5 mins.
-            # Arbitrarily I decided to constrain it to between 5 and 15 faults in 2 to 5 mins.
+            # From S5.2.5.5:
+            # Up to 15 faults in any 5 minute period (arbitrarily I decided to constrain it to between 5 and 15 faults in 2 to 5 mins.)
+            # up to 6 disturbances cause the POC voltage to drop below 50%
+            # minimum clearance from the end of one disturbance and commencement of the next disturbance may be 0 ms
+            # cumulative time that voltage at the connection point is lower than 90% of normal voltage will not exceed 1800 ms
+            # OR the time integral of difference between V dip and normal V when V dip > %90* Vnom will not exceed 1s
             min_no_faults = 5
             max_no_faults = 15
             max_time = 300
             # Choose a ranom number of faults to apply between 5 and 15
             no_faults = random.randint(min_no_faults, max_no_faults)
-            ic(no_faults)
             # We can specify a minimum time between faults
-            min_time_between_faults = 0.1
-            # By using the integer random sampling method we can control the accuracy.
+            min_time_between_faults = 0.001
+            # By using the integer random sampling method we can control the level of precision considered.
             accuracy = 0.001
             time_range = range(0, int(min(max_time, row["End Run (s)"])/accuracy), int(min_time_between_faults/accuracy))
-            ic(time_range)
             time = random.sample(time_range, k=no_faults)
             time.sort()
             # Convert the list back to seconds.
             time = [item*accuracy for item in time]
-            ic(time)
+            # Calculate the fault multiplier for which the POC voltage is 50%
+            # TODO
+            no_vdips_gt50 = 0
+            # Calculate the fault multiplier for which the POC voltage is 90%
+            # TODO
+            time_vdips_gt_10 = 0
             # Loop through each time step.
             for i in range(len(time)):
                 fault_type = random.choice(fault_type_options)
@@ -622,13 +646,10 @@ class SpecGenerator():
                 fault_multiplier = random.randint(0, 5)
                 fault_info.append((fault_type, time[i], fault_duration, fault_multiplier))
         row_sect = self.generate_mfrt(fault_info)
-        ic(row_sect)
         row_sect.update({'Fault_X2R_v': new_tests["Grid_X2R_v"]})
-        ic(row_sect)
         return row_sect
     
     def generate_mfrt(self, fault_info: list):
-        ic('generate_mfrt')
         row_sect = dict()
         fault_types = []
         fault_durations = []
@@ -661,34 +682,23 @@ class SpecGenerator():
         return row_sect
     
     def calc_ramp(self, row: pd.DataFrame):
-        ic('calc_ramp')
         d_freq = abs(row["Freq Target"] - self.f_nom)
         d_t = d_freq/row["Freq Tamp Hz/s"]
         t_end_ramp = min(row["Apply Step (s)"] + d_t, row["End Run (s)"])
-        return t_end_ramp
-    
-    def generate_oscillation(self, vslack: float, ):
-        ic("generate_oscillation")
-        
-        
+        return t_end_ramp 
         
 ##################### FAULT CALCULATIONS #######################
     def calc_fault_impedance(self, fault_voltage: float, fault_distance: float, grid_impedance: tuple):
-        ic('calc_fault_impedance')
         (_, _, grid_impedance) = grid_impedance
-        ic(grid_impedance)
-        ic(fault_voltage)
         grid_impedance = grid_impedance*self.z_base
         fault_impedance = fault_distance*grid_impedance*fault_voltage/abs(1 - fault_voltage)
-            
+        
         return fault_impedance
     
     def read_fault_multiplier(self, zf_str: str):
-        ic('read_fault_multiplier')
         # can't set fault impedance to 0 so set it to a very low number.
         min_fault_impedance = 0.000000001
         str_list = zf_str.split("=")
-        ic(str_list)
         # If there is a "[comment]" part, remove this.
         if "[" in str_list[1]:
             str_list[1] = str_list[1].split("[")[0]
@@ -714,7 +724,6 @@ class SpecGenerator():
         return multiplier
     
     def calc_fault_voltage(self, Zf: tuple, Zs: tuple):
-        ic('calc_fault_voltage')
         (_, _, zs) = Zs
         Udip= Zf/(zs + Zf)
         return Udip
@@ -753,7 +762,6 @@ class SpecGenerator():
             return False
         
     def read_scr_and_x2r(self, row: pd.DataFrame):
-        ic("read_scr_and_x2r")
         scr_strs = str(row["SCR"]).split("; ")
         x2r_strs = str(row["X/R"]).split("; ")
         scr_and_x2r = []
@@ -791,13 +799,10 @@ class SpecGenerator():
         return scr_and_x2r
     
     def calc_fault_level(self, scr: float):
-        ic("calc_fault_level")
         fault_level = scr * self.p_nom
-        ic(fault_level)
         return fault_level
     
     def calc_grid_impedence(self, pu: bool, fl, x2r: float):
-        ic("calc_grid_impedence")
         Zs_list = []
         if type(fl) == float:
             fl = [fl]
@@ -814,34 +819,27 @@ class SpecGenerator():
         return Zs_list
         
     def calc_vslack_from_vpoc(self, vpoc: float, ppoc: float, qpoc: float, Zs: tuple):
-        ic("calc_vslack_from_vpoc")
         spoc = math.sqrt(ppoc**2 + qpoc**2)
         (rgrid_pu, xgrid_pu, zgrid_pu) = Zs
-        ic(rgrid_pu*self.z_base)
-        ic(xgrid_pu*self.z_base)
+
         vslack = math.sqrt(vpoc**2 + spoc**2/vpoc**2*zgrid_pu**2 - 2*(ppoc*rgrid_pu + qpoc*xgrid_pu))
         return vslack
         
     def calc_vpoc_from_vslack(self, vslack: float, ppoc: float, qpoc: float, Zs: tuple):
-        ic("calc_vpoc_from_vslack")
         spoc = math.sqrt(ppoc**2 + qpoc**2)
         (rgrid_pu, xgrid_pu, zgrid_pu) = Zs
         vgrid = math.sqrt((vslack**2 + 2*(ppoc*rgrid_pu + qpoc*xgrid_pu) + math.sqrt((vslack**2 + 2*(ppoc*rgrid_pu + qpoc*xgrid_pu))**2 - 4*spoc**2*zgrid_pu**2))/2)
-        ic(vgrid)
         return vgrid
     
     def calc_qpoc_from_vref_and_vpoc(self, vref: float, vpoc: float):
-        ic("calc_qpoc_from_vref_and_vpoc")
         qpoc = (vref - vpoc)/self.qv_droop
         return qpoc
     
     def calc_vref_from_qpoc_and_vpoc(self, qpoc: float, vpoc: float):
-        ic("calc_vref_from_qpoc_and_vpoc")
         vref = vpoc + qpoc*self.qv_droop
         return vref
     
     def calc_vpoc_from_qpoc_and_vref(self, qpoc: float, vref: float):
-        ic("calc_vpoc_from_qpoc_and_vref")
         vpoc = -qpoc*self.qv_droop + vref
         return vpoc
 
@@ -855,57 +853,56 @@ class SpecGenerator():
             self.ramps = None
             self.profile_type = None
 
-        def check_valid_input(self, string):
+        def check_valid_input(self, v_data:str, t_data:str, r_data=None):
+            # check if the data inputs can be read as a list
             try:
-                _ = json.loads(string)
-                return True
-            except:
-                if string in self.figure_references["Figure"]:
-                    return True
-                else:
-                    return False
+                _ = json.loads(v_data)
+                return "manual"
+            except json.decoder.JSONDecodeError:
+                # check that the data inputs are all the same
+                if not v_data == t_data:
+                    return "invalid"
+                if not r_data == None:
+                    if not v_data == r_data:
+                        return "invalid"
+                # check if the data inputs can be read as a default figure
+                try:
+                    self.get_default_profile_type(v_data)
+                    return "default"
+                except KeyError:
+                    return "invalid"
         
         def get_default_profile_type(self, figure_name: str):
             figure_reference = self.figure_references.loc[figure_name]
             self.profile_type =  figure_reference["Type"]
             
         def read_default_profile(self, fig: str, ramp = False):
-            # default profile is refered to as "fig"
-            try:
-                self.get_default_profile_type(fig)
-            except Exception as e:
-                print(f"### {e}")
+            if not self.check_valid_input(v_data=fig, t_data=fig) == "default":
                 raise CalcSheetError("figure name")
+            # default profile is refered to as "fig"
             figure_reference = self.figure_references.loc[fig]
-            ic(figure_reference)
-            ic(figure_reference["Deltas"])
+            if not self.check_valid_input(v_data=figure_reference["Deltas"], t_data=figure_reference["Time Steps"]) == "manual":
+                raise CalcSheetError("figure reference")
             self.deltas = json.loads(figure_reference["Deltas"])
-            ic(self.deltas)
-            ic(figure_reference["Time Steps"])
             self.time_steps = json.loads(figure_reference["Time Steps"])
-            ic(self.time_steps)
             if ramp:
-                self.ramps = figure_reference["Ramp"][1:-1].split(",")
+                self.ramps = figure_reference["Ramp"] # we can just read the ramp in as a string
         
         def read_profile(self, v_data: str, t_data: str, r_data=None):
+            input_type = self.check_valid_input(v_data=v_data, t_data=t_data, r_data=r_data) 
             # manual profile is refered to as [1,2,3]
-            try:
+            if input_type == "manual":
                 self.deltas = json.loads(v_data)
                 self.time_steps = json.loads(t_data)
                 if not r_data == None:
-                    try:
-                        self.ramps = json.loads(r_data)
-                    except:
-                        raise CalcSheetError("ramps")
-            except:
-                # if the profile can't be recognised, then try read the default profile
-                try:
-                    # If there is a ramp in the profile, then read the ramp of the default profile
-                    if not r_data == None:
-                        self.read_default_profile(fig=v_data, ramp=True)
-                    else:
-                        self.read_default_profile(fig=v_data)
-                except Exception as e:
-                    print(f"### {e}")
-                    raise CalcSheetError("time steps or delta")
+                    self.ramps = r_data # we can just log ramp data as a string
+            elif input_type == "default":
+            # if the profile can't be recognised, then try read the default profile
+            # If there is a ramp in the profile, then read the ramp of the default profile
+                if not r_data == None:
+                    self.read_default_profile(fig=v_data, ramp=True)
+                else:
+                    self.read_default_profile(fig=v_data)
+            elif input_type == "invalid":
+                raise CalcSheetError("time step, ramp, or delta")
             
