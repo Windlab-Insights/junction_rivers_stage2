@@ -1,10 +1,11 @@
 import pandas as pd
 import json
-from typing import Dict
+from typing import Dict, Optional
 import math
 from icecream import ic
 import random
 from copy import deepcopy
+from enum import Enum
 
 class CalcSheetError(Exception):
     def __init__(self):
@@ -12,7 +13,15 @@ class CalcSheetError(Exception):
     
     def __init__(self, input):
         print(f"Calc Sheet Error: Cannot interpret {input}")
+        
+
 class SpecGenerator():
+    
+    class WfState(Enum):
+     WTG_PZERO = 0
+     BESS_PMAX = 1
+     BESS_PZERO = 2
+     BESS_PMIN = 3
     
     HEADERS = [
         'Grouping',
@@ -22,11 +31,6 @@ class SpecGenerator():
         'Category',
         'DIR',
         ]
-    
-    WTG_PZERO = 0
-    BESS_PMAX = 1
-    BESS_PZERO = 2
-    BESS_PMIN = 3
     
     def __init__(self, calc_sheet_path, spec_path):
         self.calc_sheet_path = calc_sheet_path
@@ -124,7 +128,6 @@ class SpecGenerator():
         first_test.update({'File_Name': f'{category}_test_{str(row["Test"]).replace("-","_")}-{filename_index}'})
         first_test.update({'DIR': category})
         first_test.update({'En_SMIB_init_v': 0})
-        first_test.update({'Infinite_Grid_v': 0})
         new_tests = [first_test]
         
         file_infos = self.add_file_info(row)
@@ -140,7 +143,7 @@ class SpecGenerator():
         
         out_rows = []
         for new_test in new_tests:
-            p_ref_specs = self.add_p_ref_specs(row)
+            p_ref_specs = self.add_p_ref_specs(row, new_test)
             filename_index = int(new_test["File_Name"].split("-")[1]) * len(p_ref_specs)
             out_rows.extend(self.update_rows(p_ref_specs, new_test, filename_index))
             new_tests = out_rows[:]
@@ -206,82 +209,128 @@ class SpecGenerator():
                     'Category': '',
                     'Post_Init_Duration_s': row["End Run (s)"],
                 }
-        scr_and_x2rs = self.read_scr_and_x2r(row)
-        for scr_and_x2r in scr_and_x2rs:
-            (scr, x2r) = scr_and_x2r
-            temp_sect = row_sect.copy()
-            try:
-                scr_vals= json.loads(scr) # If this works, then we have multiple values of SCR in a singal test
-                if 'Apply Fault (s)' in row:
+        if str(row["SCR"]) == "inf" and str(row["X/R"]) == "inf":
+            row_sect.update({'Infinite_Grid_v': 1})
+            row_sect_list = [row_sect]
+        else:
+            row_sect.update({'Infinite_Grid_v': 0})
+            scr_and_x2rs = self.read_scr_and_x2r(row["SCR"], row["X/R"])
+            for scr_and_x2r in scr_and_x2rs:
+                (scr, x2r) = scr_and_x2r
+                temp_sect = row_sect.copy()
+                try:
+                    scr_vals= json.loads(scr) # If this works, then we have multiple values of SCR in a single test
+                    if 'Apply Fault (s)' in row:
+                        temp_sect.update({
+                            'Grid_SCR': scr_vals,
+                            'Grid_X2R_v': x2r,
+                            'Grid_MVA_v': [self.calc_fault_level(scr_val) for scr_val in scr_vals],
+                            'Grid_MVA_t': [0, row["Apply Fault (s)"], row["End Run (s)"]],
+                        })
+                    else:
+                        raise CalcSheetError("SCRs")
+                except TypeError:
                     temp_sect.update({
-                        'Grid_SCR': scr_vals,
+                        'Grid_SCR': scr,
                         'Grid_X2R_v': x2r,
-                        'Grid_MVA_v': [self.calc_fault_level(scr_val) for scr_val in scr_vals],
-                        'Grid_MVA_t': [0, row["Apply Fault (s)"], row["End Run (s)"]],
+                        'Grid_MVA_v': self.calc_fault_level(scr)
                     })
-                else:
-                    raise CalcSheetError("SCRs")
-            except TypeError:
-                temp_sect.update({
-                    'Grid_SCR': scr,
-                    'Grid_X2R_v': x2r,
-                    'Grid_MVA_v': self.calc_fault_level(scr)
-                })
-            finally:
-                row_sect_list.append(temp_sect)
+                finally:
+                    row_sect_list.append(temp_sect)
         return row_sect_list
     
     # Add Pref_Wind_MW and Pref_BESS_MW info
-    def add_p_ref_specs(self, row: pd.DataFrame):
+    def add_p_ref_specs(self, row: pd.DataFrame, new_test: dict):
         # from the system inf sheet, get the wf states and make a list of them to run through
         if self.system_inf.loc["WF States"]["Var Val"] == "ALL":
-            wf_states = [self.WTG_PZERO, self.BESS_PMAX, self.BESS_PZERO, self.BESS_PMIN]
+            wf_states = list(self.WfState)
         else:
             wf_state_strs = self.system_inf.loc["WF States"]["Var Val"].split("; ")
             wf_states = []
             for wf_state_str in wf_state_strs:
                 if wf_state_str == "WTG PZERO":
-                    wf_states.append(self.WTG_PZERO)
+                    wf_states.append(self.WfState.WTG_PZERO)
                 elif wf_state_str == "BESS PMAX":
-                    wf_states.append(self.BESS_PMAX)
+                    wf_states.append(self.WfState.BESS_PMAX)
                 elif wf_state_str == "BESS PZERO":
-                    wf_states.append(self.BESS_PZERO)
+                    wf_states.append(self.WfState.BESS_PZERO)
                 elif wf_state_str == "BESS PMIN":
-                    wf_states.append(self.BESS_PMIN)
+                    wf_states.append(self.WfState.BESS_PMIN)
                 else:
                     raise CalcSheetError("wf state")
         row_sect = dict()
         row_sect_list = []
-        if 'Active Power (pu)' in row:
+        if 'WTG Pref (pu)' in row and 'BESS Pref (pu)' in row:
+            # WTG pref information
+            if 'WTG Pref Deltas (pu)' in row and 'Time Steps (s)' in row:
+                wtg_pref_profile = self.Profile(self.figure_references)
+                if 'WTG Pref Ramp (pu/s)' in row:
+                    wtg_pref_profile.read_profile(v_data=row["WTG Pref Deltas (pu)"], t_data=row["Time Steps (s)"], r_data=row["WTG Pref Ramp (pu/s)"])
+                    row_sect = {'Pref_Wind_MW_v': [(row["WTG Pref (pu)"] + delta)*self.p_nom for delta in wtg_pref_profile.deltas],
+                                'Pref_Wind_MW_t': wtg_pref_profile.time_steps,
+                                'Pref_Wind_MW_r': wtg_pref_profile.ramps}
+                else:
+                    wtg_pref_profile.read_profile(v_data=row["WTG Pref Deltas (pu)"], t_data=row["Time Steps (s)"])
+                    row_sect = {'Pref_Wind_MW_v': [(row["WTG Pref (pu)"] + delta)*self.p_nom for delta in wtg_pref_profile.deltas],
+                                'Pref_Wind_MW_t': wtg_pref_profile.time_steps}
+            elif 'WTG Pref Deltas (pu)' in row:
+                raise CalcSheetError("wtg pref time steps")
+            else:
+                row_sect = {'Pref_Wind_MW_v': float(row["WTG Pref (pu)"])*self.p_nom}
+            # add BESS pref information
+            if 'BESS Pref Deltas (pu)' in row and 'Time Steps (s)' in row:
+                bess_pref_profile = self.Profile(self.figure_references)
+                if 'BESS Pref Ramp (pu/s)' in row:
+                    bess_pref_profile.read_profile(v_data=row["BESS Pref Deltas (pu)"], t_data=row["Time Steps (s)"], r_data=row["BESS Pref Ramp (pu/s)"])
+                    row_sect.update({'Pref_BESS_MW_v': [(row["BESS Pref (pu)"] + delta)*self.p_max_bess for delta in bess_pref_profile.deltas],
+                                    'Pref_BESS_MW_t': bess_pref_profile.time_steps,
+                                    'Pref_BESS_MW_r': bess_pref_profile.ramps})
+                else:
+                    bess_pref_profile.read_profile(v_data=row["BESS Pref Deltas (pu)"], t_data=row["Time Steps (s)"])
+                    row_sect.update({'Pref_BESS_MW_v': [(row["BESS Pref (pu)"] + delta)*self.p_max_bess for delta in bess_pref_profile.deltas],
+                                    'Pref_BESS_MW_t': bess_pref_profile.time_steps})
+            elif 'BESS Pref Deltas (pu)' in row:
+                raise CalcSheetError("bess pref time steps")
+            else:
+                row_sect.update({'Pref_BESS_MW_v': float(row["BESS Pref (pu)"])*self.p_max_bess})
+            # convert to list
+            row_sect_list = [row_sect]
+        elif 'Active Power (pu)' in row:
             for wf_state in wf_states:
+                
                 # scale the reference by the BESS pmax or WT pmax depending on the state
-                if wf_state == self.WTG_PZERO:
+                if wf_state == self.WfState.WTG_PZERO:
                     p_base = self.p_max_bess
                 else:
                     p_base = self.p_nom
                 # set a ceiling to ensure we don't go over the maximum P output of the wind farm
-                if wf_state == self.BESS_PMAX:
+                if wf_state == self.WfState.BESS_PMAX:
                     p_ceil = self.p_nom - self.p_max_bess
                 else:
                     p_ceil = self.p_nom
                 # add profile
                 if 'Time Steps (s)' in row and 'Pref Deltas (pu)' in row:
+                    ic()
                     pref_profile = self.Profile(self.figure_references)
+                    ic()
+                    ic(row["Pref Deltas (pu)"])
+                    ic(row["Time Steps (s)"])
                     pref_profile.read_profile(v_data=row["Pref Deltas (pu)"], t_data=row["Time Steps (s)"])
                     pref_v = ([min((row["Active Power (pu)"] + delta)*p_base, p_ceil) for delta in pref_profile.deltas])
-                    if wf_state == self.WTG_PZERO:
+                    if wf_state == self.WfState.WTG_PZERO:
+                        ic()
                         row_sect = {'Pref_Wind_MW_v': 0,
                                     'Pref_BESS_MW_v': pref_v,
                                     'Pref_BESS_MW_t': pref_profile.time_steps}
-                    elif wf_state == self.BESS_PMAX:
+                    elif wf_state == self.WfState.BESS_PMAX:
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': self.p_max_bess,
                                     'Pref_Wind_MW_t': pref_profile.time_steps}
-                    elif wf_state == self.BESS_PZERO:
+                    elif wf_state == self.WfState.BESS_PZERO:
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': 0,
                                     'Pref_Wind_MW_t': pref_profile.time_steps}
-                    elif wf_state == self.BESS_PMIN:
+                    elif wf_state == self.WfState.BESS_PMIN:
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': -self.p_max_bess,
                                     'Pref_Wind_MW_t': pref_profile.time_steps}
@@ -290,25 +339,24 @@ class SpecGenerator():
                 # add value
                 else:
                     pref_v = min(row["Active Power (pu)"]*p_base, p_ceil)
-                    if wf_state == self.WTG_PZERO:
+                    if wf_state == self.WfState.WTG_PZERO:
                         row_sect = {'Pref_Wind_MW_v': 0,
                                     'Pref_BESS_MW_v': pref_v}
-                    elif wf_state == self.BESS_PMAX:
+                    elif wf_state == self.WfState.BESS_PMAX:
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': self.p_max_bess}
-                    elif wf_state == self.BESS_PZERO:
+                    elif wf_state == self.WfState.BESS_PZERO:
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': 0}
-                    elif wf_state == self.BESS_PMIN:
+                    elif wf_state == self.WfState.BESS_PMIN:
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': -self.p_max_bess}
                     else:
                         raise CalcSheetError("wf_state")
+                row_sect.update({'DIR': f'{wf_state.name}_{new_test["DIR"]}'})
                 row_sect_list.append(row_sect)
         else:
-            row_sect = {'Pref_Wind_MW_v': 0,
-                        'Pref_BESS_MW_v': 0}
-            row_sect_list = [row_sect]
+            raise CalcSheetError("p ref")
         return row_sect_list
     
     # if reactive power is specified, then add this in.
@@ -316,7 +364,7 @@ class SpecGenerator():
         row_sect = dict()
         # Reactive power is specified
         if 'Reactive Power (pu)' in row:
-            row_sect = {'Init_Qpoc_pu_v': row["Reactive Power (pu)"] * self.s_nom}
+            row_sect = {'Init_Qpoc_pu_v': row["Reactive Power (pu)"]}
         else:
             row_sect = {'Init_Qpoc_pu_v': 0}
         return [row_sect]
@@ -336,12 +384,56 @@ class SpecGenerator():
             pref_bess = new_test["Pref_BESS_MW_v"]
         ppoc = (pref_wind + pref_bess)/self.p_nom
         qpoc = new_test["Init_Qpoc_pu_v"]
-        Zs = self.calc_grid_impedence(pu=True, fl=new_test["Grid_MVA_v"], x2r=new_test["Grid_X2R_v"])
-        # Vpoc is specified, calculate Vgrid/Vslack
-        if 'Voltage  POC (pu)' in row:
-            row_sect = {'Init_Vpoc_pu_v': row["Voltage POC (pu)"],
-                        'Vslack_pu_v': self.calc_vslack_from_vpoc(vpoc=row["Voltage POC (pu)"], ppoc=ppoc, qpoc=qpoc, Zs=Zs)}
-            row_sect_list = [row_sect]
+        # if not an infinite bus, then we need to calculate the slack voltage from the POC voltage, otherwise it's the same
+        if new_test["Infinite_Grid_v"] == 0:
+            Zs = self.calc_grid_impedence(pu=True, fl=new_test["Grid_MVA_v"], x2r=new_test["Grid_X2R_v"])
+        elif new_test["Infinite_Grid_v"] == 1:
+            Zs = None
+        # General voltage profile specified
+        if 'Vgrid Deltas (pu)' in row and 'Time Steps (s)' in row:
+            init_vpoc = row["Voltage POC (pu)"] if 'Voltage POC (pu)' in row else self.v_set
+            vgrid_profile = self.Profile(self.figure_references)
+            vslack_starting_point = self.calc_vslack_from_vpoc(vpoc=init_vpoc, ppoc=ppoc, qpoc=qpoc, Zs=Zs)
+            # split vgrid into a list of profiles
+            vgrid_strs = row["Vgrid Deltas (pu)"].split("; ")
+            timestep_strs = row["Time Steps (s)"].split("; ")
+            if 'Vgrid Ramp (Hz/s)' in row: # add ramp information
+                ramp_strs = row["Vgrid Ramp (Hz/s)"].split("; ")
+                for index, vgrid_str in enumerate(vgrid_strs):
+                    vgrid_profile.read_profile(v_data=vgrid_str,t_data=timestep_strs[index],r_data=ramp_strs[index])
+                    if self.vgrid_change_method == "Vslack":
+                        # vgrid change is applied via vslack
+                        row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=vgrid_profile.deltas[0] + vslack_starting_point,ppoc=ppoc,qpoc=qpoc,Zs=Zs),
+                                    'Vslack_pu_v': [delta + vslack_starting_point for delta in vgrid_profile.deltas],
+                                    'Vslack_pu_t': vgrid_profile.time_steps,
+                                    'Vslack_pu_r': vgrid_profile.ramps}
+                    elif self.vgrid_change_method == "POC disturbance":
+                        # vgrid change is applied at the POC via a dummy transformer
+                        row_sect = {'Init_Vpoc_pu_v': init_vpoc,
+                                    'Vslack_pu_v': vslack_starting_point,
+                                    'Vpoc_disturbance_pu_v': vgrid_profile.deltas,
+                                    'Vpoc_disturbance_pu_t': vgrid_profile.time_steps,
+                                    'Vpoc_disturbance_pu_r': vgrid_profile.ramps}
+                    else:
+                        raise CalcSheetError("vgrid method")
+                    row_sect_list.append(row_sect)
+            else: # no ramp given
+                for index, vgrid_str in enumerate(vgrid_strs):
+                    vgrid_profile.read_profile(v_data=vgrid_str,t_data=timestep_strs[index])
+                    if self.vgrid_change_method == "Vslack":
+                        row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=vgrid_profile.deltas[0] + vslack_starting_point,ppoc=ppoc,qpoc=qpoc,Zs=Zs),
+                                    'Vslack_pu_v': [delta + vslack_starting_point for delta in vgrid_profile.deltas],
+                                    'Vslack_pu_t': vgrid_profile.time_steps}
+                    elif self.vgrid_change_method == "POC disturbance":
+                        row_sect = {'Init_Vpoc_pu_v': init_vpoc,
+                                    'Vslack_pu_v': vslack_starting_point,
+                                    'Vpoc_disturbance_pu_v': vgrid_profile.deltas,
+                                    'Vpoc_disturbance_pu_t': vgrid_profile.time_steps}
+                    else:
+                        raise CalcSheetError("vgrid method")
+                    row_sect_list.append(row_sect)
+        elif 'Vgrid Deltas (pu)' in row: # if there are deltas but no time steps we need to fix the config sheet
+            raise CalcSheetError("time steps")
         # There is a Vgrid profile in DMAT tests 149 - 166
         elif 'Event' in row and row["Event"] == "Vgrid":
             vgrid_profile = self.Profile(self.figure_references)
@@ -362,51 +454,11 @@ class SpecGenerator():
             else:
                 raise CalcSheetError("vgrid method")
             row_sect_list = [row_sect]
-        # General voltage profile
-        elif 'Vgrid Deltas (pu)' in row:
-            if 'Time Steps (s)' in row:
-                vgrid_profile = self.Profile(self.figure_references)
-                vslack_starting_point = self.calc_vslack_from_vpoc(vpoc=self.v_set, ppoc=ppoc, qpoc=qpoc, Zs=Zs)
-                # split vgrid into a list of profiles
-                vgrid_strs = row["Vgrid Deltas (pu)"].split("; ")
-                timestep_strs = row["Time Steps (s)"].split("; ")
-                if 'Vgrid Ramp (Hz/s)' in row: # add ramp information
-                    ramp_strs = row["Vgrid Ramp (Hz/s)"].split("; ")
-                    for index, vgrid_str in enumerate(vgrid_strs):
-                        vgrid_profile.read_profile(v_data=vgrid_str,t_data=timestep_strs[index],r_data=ramp_strs[index])
-                        if self.vgrid_change_method == "Vslack":
-                            # vgrid change is applied via vslack
-                            row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=vgrid_profile.deltas[0] + vslack_starting_point,ppoc=ppoc,qpoc=qpoc,Zs=Zs),
-                                        'Vslack_pu_v': [delta + vslack_starting_point for delta in vgrid_profile.deltas],
-                                        'Vslack_pu_t': vgrid_profile.time_steps,
-                                        'Vslack_pu_r': vgrid_profile.ramps}
-                        elif self.vgrid_change_method == "POC disturbance":
-                            # vgrid change is applied at the POC via a dummy transformer
-                            row_sect = {'Init_Vpoc_pu_v': self.v_set,
-                                        'Vslack_pu_v': vslack_starting_point,
-                                        'Vpoc_disturbance_pu_v': vgrid_profile.deltas,
-                                        'Vpoc_disturbance_pu_t': vgrid_profile.time_steps,
-                                        'Vpoc_disturbance_pu_r': vgrid_profile.ramps}
-                        else:
-                            raise CalcSheetError("vgrid method")
-                        row_sect_list.append(row_sect)
-                else: # no ramp given
-                    for index, vgrid_str in enumerate(vgrid_strs):
-                        vgrid_profile.read_profile(v_data=vgrid_str,t_data=timestep_strs[index])
-                        if self.vgrid_change_method == "Vslack":
-                            row_sect = {'Init_Vpoc_pu_v': self.calc_vpoc_from_vslack(vslack=vgrid_profile.deltas[0] + vslack_starting_point,ppoc=ppoc,qpoc=qpoc,Zs=Zs),
-                                        'Vslack_pu_v': [delta + vslack_starting_point for delta in vgrid_profile.deltas],
-                                        'Vslack_pu_t': vgrid_profile.time_steps}
-                        elif self.vgrid_change_method == "POC disturbance":
-                            row_sect = {'Init_Vpoc_pu_v': self.v_set,
-                                        'Vslack_pu_v': vslack_starting_point,
-                                        'Vpoc_disturbance_pu_v': vgrid_profile.deltas,
-                                        'Vpoc_disturbance_pu_t': vgrid_profile.time_steps}
-                        else:
-                            raise CalcSheetError("vgrid method")
-                        row_sect_list.append(row_sect)
-            else:
-                raise CalcSheetError("time steps")
+        # Vpoc is specified, calculate Vgrid/Vslack
+        elif 'Voltage POC (pu)' in row:
+            row_sect = {'Init_Vpoc_pu_v': row["Voltage POC (pu)"],
+                        'Vslack_pu_v': self.calc_vslack_from_vpoc(vpoc=row["Voltage POC (pu)"], ppoc=ppoc, qpoc=qpoc, Zs=Zs)}
+            row_sect_list = [row_sect]
         else:
             row_sect = {'Init_Vpoc_pu_v': self.v_set,
                         'Vslack_pu_v': self.calc_vslack_from_vpoc(vpoc=self.v_set, ppoc=ppoc, qpoc=qpoc, Zs=Zs)}
@@ -449,7 +501,7 @@ class SpecGenerator():
         row_sect = dict()
         if 'Event' in row and row["Event"] == "Qref":
             qref_profile = self.Profile(self.figure_references)
-            qref_profile.read_profile(v_data="Delta (pu)", t_data="Time Steps (s)")
+            qref_profile.read_profile(v_data=row["Delta (pu)"], t_data=row["Time Steps (s)"])
             q_starting_point = new_test["Init_Qpoc_pu_v"]
             row_sect = {'Qref_MVAr_v': [(delta + q_starting_point) * self.q_nom for delta in qref_profile.deltas],
                         'Qref_MVAr_t': qref_profile.time_steps}
@@ -460,95 +512,103 @@ class SpecGenerator():
         if 'Event' in row and row["Event"] == "Vref":
             vref_profile = self.Profile(self.figure_references)
             vref_profile.read_profile(v_data=row["Delta (pu)"], t_data=row["Time Steps (s)"])
-            v_starting_point = new_test["Init_Vpoc_pu_v"]
+            # if the initial vref is not specified, then we use 1.034 pu
+            v_starting_point = row["Vref (pu)"] if 'Vref (pu)' in row else self.v_set
             row_sect = {'Vref_pu_v': [delta + v_starting_point for delta in vref_profile.deltas],
                         'Vref_pu_t': vref_profile.time_steps}
             vref_init = v_starting_point + vref_profile.deltas[0]
-        # We might want to calculate Vref based off the given Qpoc and Vpoc values
-        elif 'Init_Vpoc_pu_v' in new_test and 'Init_Qpoc_pu_v' in new_test:
-            vpoc = new_test["Init_Vpoc_pu_v"]
-            qpoc = new_test["Init_Qpoc_pu_v"]
-            row_sect = {'Vref_pu_v': self.calc_vref_from_qpoc_and_vpoc(qpoc=qpoc/self.q_nom,vpoc=vpoc)}
-            vref_init = self.calc_vref_from_qpoc_and_vpoc(qpoc=qpoc/self.q_nom,vpoc=vpoc)
-        # if not otherwise specifed, then set the vref value to 1.034 (#### or 1 pu?)
+        elif 'Vref Deltas (pu)' in row and 'Time Steps (s)':
+            vref_profile = self.Profile(self.figure_references)
+            # if the initial vref is not specified, then we use 1.034 pu
+            v_starting_point = row["Vref (pu)"] if 'Vref (pu)' in row else self.v_set
+            if 'Vref Ramp (pu/s)'  in row:
+                vref_profile.read_profile(v_data=row["Vref Deltas (pu)"], t_data=row["Time Steps (s)"], r_data=row["Vref Ramp (pu/s)"])
+                row_sect = {'Vref_pu_v': [delta + v_starting_point for delta in vref_profile.deltas],
+                            'Vref_pu_t': vref_profile.time_steps,
+                            'Vref_pu_r': vref_profile.ramps}
+                vref_init = v_starting_point + vref_profile.deltas[0]
+            else:
+                vref_profile.read_profile(v_data=row["Vref Deltas (pu)"], t_data=row["Time Steps (s)"])
+                row_sect = {'Vref_pu_v': [delta + v_starting_point for delta in vref_profile.deltas],
+                            'Vref_pu_t': vref_profile.time_steps}
+                vref_init = v_starting_point + vref_profile.deltas[0]
+        # raise an error if there are vref deltas but no timesteps
+        elif 'Vref Deltas (pu)' in row:
+            raise CalcSheetError("time steps")
+        # a single value may be given for vref
+        elif 'Vref (pu)' in row:
+            row_sect = {'Vref_pu_v': row["Vref (pu)"]}
+            vref_init = row["Vref (pu)"]
+        # if not otherwise specifed, then set the vref value depending on the values of Qpoc and Vpoc
         else:
-            row_sect = {'Vref_pu_v': self.v_set}
-            vref_init = self.v_set
-        # Update the qpoc value based off vref and vpoc    
-        if 'Init_Vpoc_pu_v' in new_test and not 'Init_Qpoc_pu_v' in new_test:
-            vpoc = new_test["Init_Vpoc_pu_v"]
-            vref = vref_init
-            row_sect.update({'Init_Qpoc_pu_v': self.calc_qpoc_from_vref_and_vpoc(vref=vref,vpoc=vpoc)})
-        # Update the vpoc value based off vref and qpoc
-        elif not 'Init_Vpoc_pu_v' in new_test and 'Init_Qpoc_pu_v' in new_test:
-            qpoc = new_test["Init_Qpoc_pu_v"]
-            vref = vref_init
-            row_sect.update({'Init_Vpoc_pu_v': self.calc_vpoc_from_qpoc_and_vref(qpoc=qpoc,vref=vref)})
-            
+            row_sect = {'Vref_pu_v': self.calc_vref_from_qpoc_and_vpoc(qpoc=new_test["Init_Qpoc_pu_v"],vpoc=new_test["Init_Vpoc_pu_v"])}
+        
+        #whether or not any deltas are applied, the following are only carried out if Vref is specified
+        if 'Vref (pu)' in row:
+            if 'Voltage POC (pu)' in row and 'Reactive Power (pu)' in row:
+                raise CalcSheetError("vref, vpoc, and qpoc")
+            # if Qpoc and Vref are specified but not Vpoc, then we reset Vpoc to Vpoc(Qpoc, Vref)
+            elif 'Reactive Power (pu)' in row:
+                row_sect.update({'Init_Vpoc_pu_v': self.calc_vpoc_from_qpoc_and_vref(qpoc=new_test["Init_Qpoc_pu_v"],vref=vref_init)})
+            # if Vref and Vpoc are specified but Qpoc isn't then we reset Qpoc to Qpoc(Vref, Vpoc)
+            elif 'Voltage POC (pu)' in row:
+                row_sect.update({'Init_Qpoc_pu_v': self.calc_qpoc_from_vref_and_vpoc(vref=vref_init,vpoc=new_test["Init_Vpoc_pu_v"])})
         return [row_sect]
     
     def add_osc_specs(self, row: pd.DataFrame, new_test: dict):
         row_sect_list = []
         row_sect = dict()
-        if 'Time Steps (s)' in row:
-            if 'Osc Freqs (Hz)' in row:
-                if 'Osc Magnitude (pu)' in row:
-                    if 'Step (Hz)' in row:
-                        if 'Osc Phase (deg)' in row:
-                            # read the time steps
-                            try:
-                                time_steps = json.loads(row["Time Steps (s)"])
-                            except:
-                                raise CalcSheetError("time steps")
-                            timing_sig = [0, time_steps[0], time_steps[1], row["End Run (s)"]]
-                            # split the freq steps and osc freqs into different test sets
-                            freq_steps_strs = str(row["Step (Hz)"]).split("; ")
-                            osc_freq_strs = str(row["Osc Freqs (Hz)"]).split("; ")
-                            # check that the number of test groups is the same and raise an error if not
-                            if not len(osc_freq_strs) == len(freq_steps_strs):
-                                raise CalcSheetError("time steps and freq steps")
-                            # iterrate through each test group
-                            for index, osc_freq_str in enumerate(osc_freq_strs):
-                                osc_freqs = osc_freq_str.split(":")
-                                step = float(freq_steps_strs[index])
-                                # make a list of all the frequencies which should be added
-                                osc_freq_range = []
-                                temp = float(osc_freqs[0])
-                                while temp < float(osc_freqs[1]):
-                                    osc_freq_range.append(temp)
-                                    temp = temp + step
-                                # itterate through each frequency level and add a test
-                                for osc_freq in osc_freq_range:
-                                    row_sect = {"Vslack_osc_amplitude_v": [0, row["Osc Magnitude (pu)"], 0, 0],
-                                                "Vslack_osc_amplitude_t": timing_sig,
-                                                "Vslack_osc_Hz_v": [0, osc_freq, 0, 0],
-                                                "Vslack_osc_Hz_t": timing_sig,
-                                                "Vslack_osc_phase_deg_v": [0, row["Osc Phase (deg)"], 0, 0],
-                                                "Vslack_osc_phase_deg_t": timing_sig}
-                                    row_sect_list.append(row_sect)
-                        else:
-                            raise CalcSheetError("osc phase angle")
-                    else:
-                        raise CalcSheetError("step")
-                else:
-                    raise CalcSheetError("magnitude")
-            elif 'Osc Magnitude (pu)' in row or 'Osc Phase (deg)' in row:
-                raise CalcSheetError('Osc frequency')
+        if 'Time Steps (s)' in row and 'Osc Freqs (Hz)' in row and 'Osc Magnitude (pu)' in row and 'Osc Phase (deg)' in row:
+            # read the time steps
+            try:
+                time_steps = json.loads(row["Time Steps (s)"])
+            except:
+                raise CalcSheetError("time steps")
+            timing_sig = [0, time_steps[0], time_steps[1], row["End Run (s)"]]
+            # split the osc freqs into different test sets
+            osc_freq_strs = str(row["Osc Freqs (Hz)"]).split("; ")
+            # split the freq steps into different test sets
+            steps = str(row["Step (Hz)"]).split("; ") if 'Step (Hz)' in row else None
+            # iterrate through each test group
+            for index, osc_freq_str in enumerate(osc_freq_strs):
+                if not (steps is None or steps[index] == None):
+                    osc_freq_steps = osc_freq_str.split(":")
+                    if not len(osc_freq_steps) == 2:
+                        raise CalcSheetError("osc freq steps")
+                    step = float(steps[index])
+                    # make a list of all the frequencies which should be added
+                    osc_freq_range = []
+                    temp = float(osc_freq_steps[0])
+                    while temp < float(osc_freq_steps[1]):
+                        osc_freq_range.append(temp)
+                        temp = temp + step
+                else: # no step specified
+                    osc_freq_range = [osc_freq_str]
+                # iterate through each frequency level and add a test
+                for osc_freq_step in osc_freq_range:
+                    row_sect = {"Vslack_osc_amplitude_v": [0, row["Osc Magnitude (pu)"], 0, 0],
+                                "Vslack_osc_amplitude_t": timing_sig,
+                                "Vslack_osc_Hz_v": [0, osc_freq_step, 0, 0],
+                                "Vslack_osc_Hz_t": timing_sig,
+                                "Vslack_osc_phase_deg_v": [0, row["Osc Phase (deg)"], 0, 0],
+                                "Vslack_osc_phase_deg_t": timing_sig}
+                    row_sect_list.append(row_sect)
+        elif 'Osc Magnitude (pu)' in row or 'Osc Phase (deg)' in row or 'Osc Freqs (Hz)' in row:
+            raise CalcSheetError("osc info")
         return row_sect_list
     
     def add_phase_specs(self, row: pd.DataFrame, new_test: dict):
         row_sect = dict()
         row_sect_list = []
-        if 'Angle Change (deg)' in row:
-            if 'Apply Event (s)' in row:
-                # Create a list of each phase which must be applied in a different test
-                phase_strs = row["Angle Change (deg)"].split("; ")
-                for phase_str in phase_strs:
-                    row_sect = {"Grid_phase_degs_v": [0, float(phase_str), float(phase_str)],
-                                "Grid_phase_degs_t": [0, row["Apply Event (s)"], row["End Run (s)"]]}
-                    row_sect_list.append(row_sect)
-            else:
-                raise CalcSheetError("apply event")
+        if 'Angle Change (deg)' in row and 'Apply Event (s)' in row:
+            # Create a list of each phase which must be applied in a different test
+            phase_strs = str(row["Angle Change (deg)"]).split("; ")
+            for phase_str in phase_strs:
+                row_sect = {"Grid_phase_degs_v": [0, float(phase_str), float(phase_str)],
+                            "Grid_phase_degs_t": [0, row["Apply Event (s)"], row["End Run (s)"]]}
+                row_sect_list.append(row_sect)
+        elif 'Angle Change (deg)' in row:
+            raise CalcSheetError("apply event")
         return row_sect_list
             
     
@@ -566,20 +626,40 @@ class SpecGenerator():
             fault_duration = str(row["Fault Duration (s)"])
             if self.is_number(fault_duration):
                 grid_impedance = self.calc_grid_impedence(pu=1, fl=new_test["Grid_MVA_v"], x2r=new_test["Grid_X2R_v"])
+                # if the fault x2r is specified then we use this, otherwise we assume the grid x2r
+                fault_x2r = row["Fault X/R"] if 'Fault X/R' in row else new_test["Grid_X2R_v"]
                 # If both fault impedance and fault voltage are specified then we use fault voltage
                 if 'Applied Fault Voltage (pu)' in row:
-                    fault_impedance = self.calc_fault_impedance(fault_voltage=float(row["Applied Fault Voltage (pu)"]), fault_distance=1, grid_impedance=grid_impedance)
-                    fault_impedance = fault_impedance/self.z_base
                     # if fault type is not specified then we assume 3 phase to ground
                     fault_type = row["Fault Type"] if 'Fault Type' in row else "3PHG"
-                    row_sect = {'Enable_Fault_Studies_v': 1,
-                                'Fault_Strategy_v': 1,
-                                'Fault_X2R_v': new_test["Grid_X2R_v"],
-                                'Fault_Type_v': self.get_fault_code(fault_type),
-                                'Fault_Timing_Signal_t': f'[0, {row["Apply Fault (s)"]}, {row["Apply Fault (s)"] + row["Fault Duration (s)"]}]',
-                                'Fault_Timing_Signal_v': f'[0, 1, 0]',
-                                'Zf2Zs_v': self.calc_fault_multiplier_from_fault_impedance(fault_impedance=fault_impedance,grid_impedance=grid_impedance)}
-                    row_sect_list = [row_sect]
+                    fault_voltage_strs = str(row["Applied Fault Voltage (pu)"]).split("; ")
+                    steps = str(row["Voltage Step (pu)"]).split("; ") if 'Voltage Step (pu)' in row else None
+                    for index, fault_voltage_str in enumerate(fault_voltage_strs):
+                        if not (steps is None or steps[index] == None): # if there are steps then we create a range and iterate through
+                            fault_voltage_steps = fault_voltage_str.split(":")
+                            if not len(fault_voltage_steps) == 2:
+                                raise CalcSheetError("fault voltage steps")
+                            step = float(steps[index])
+                            # make a list of all the voltage steps which should be added
+                            fault_voltage_range = []
+                            temp = float(fault_voltage_steps[0])
+                            while temp < float(fault_voltage_steps[1]):
+                                fault_voltage_range.append(temp)
+                                temp = temp + step
+                        else: # when there are no steps the range is just the fault voltage given
+                            fault_voltage_range = [fault_voltage_str]
+                        # iterate through each step and add info
+                        for fault_voltage_step in fault_voltage_range:
+                            fault_impedance = self.calc_fault_impedance(fault_voltage=fault_voltage_step, fault_distance=1, grid_impedance=grid_impedance)
+                            fault_impedance = fault_impedance/self.z_base
+                            row_sect = {'Enable_Fault_Studies_v': 1,
+                                        'Fault_Strategy_v': 1,
+                                        'Fault_X2R_v': fault_x2r,
+                                        'Fault_Type_v': self.get_fault_code(fault_type),
+                                        'Fault_Timing_Signal_t': f'[0, {row["Apply Fault (s)"]}, {row["Apply Fault (s)"] + row["Fault Duration (s)"]}]',
+                                        'Fault_Timing_Signal_v': f'[0, 1, 0]',
+                                        'Zf2Zs_v': self.calc_fault_multiplier_from_fault_impedance(fault_impedance=fault_impedance,grid_impedance=grid_impedance)}
+                            row_sect_list.append(row_sect)
                 elif 'Fault Impedance (pu)' in row:
                     # Temporary over voltage specfied as "Yf = jXc (U_Ov = 1.15pu)"
                     if "Yf = jXc" in row["Fault Impedance (pu)"] and "U_Ov =" in row["Fault Impedance (pu)"]:
@@ -600,7 +680,7 @@ class SpecGenerator():
                         # The alternative is fault startegy =0 which means the fault impedance is calculated based off Udip in PSCAD.
                         row_sect = {'Enable_Fault_Studies_v': 1,
                                     'Fault_Strategy_v': 1,
-                                    'Fault_X2R_v': new_test["Grid_X2R_v"],
+                                    'Fault_X2R_v': fault_x2r,
                                     'Fault_Type_v': self.get_fault_code(fault_type),
                                     'Fault_Timing_Signal_t': f'[0, {row["Apply Fault (s)"]}, {row["Apply Fault (s)"] + row["Fault Duration (s)"]}]',
                                     'Fault_Timing_Signal_v': f'[0, 1, 0]'}
@@ -702,15 +782,12 @@ class SpecGenerator():
 
             fault_types.append(self.get_fault_code(fault_type))
             fault_durations.append(fault_duration)
-            ic(fault_durations)
             if index > 0 and index < len(fault_info) - 1:
                 post_fault_durations.append(fault_time - fault_times[index-1] - fault_durations[index-1])
-            ic(post_fault_durations)
             fault_zs_multiplier.append(fault_impedence_multiplier)
             fault_timing_signal_t.extend([fault_time, fault_time+fault_duration])
             fault_timing_signal_v.extend([1, 0])
             fault_times.append(fault_time)
-            ic(fault_times)
         
         row_sect = {'Fault_Timing_Signal_t': fault_timing_signal_t,
                     'Fault_Timing_Signal_v': fault_timing_signal_v,
@@ -787,7 +864,6 @@ class SpecGenerator():
 # 10: phase B to C
 # ##
     def get_fault_code(self, code: str):
-        ic('get_fault_code')
         fault_code = 0
         if code == "3PHG":
             fault_code = 7
@@ -807,9 +883,9 @@ class SpecGenerator():
         except:
             return False
         
-    def read_scr_and_x2r(self, row: pd.DataFrame):
-        scr_strs = str(row["SCR"]).split("; ")
-        x2r_strs = str(row["X/R"]).split("; ")
+    def read_scr_and_x2r(self, row_scr: str, row_x2r: str):
+        scr_strs = str(row_scr).split("; ")
+        x2r_strs = str(row_x2r).split("; ")
         scr_and_x2r = []
         poc_scr = json.loads(self.system_inf.loc["POC SCR"]["Var Val"])
         poc_x2r = json.loads(self.system_inf.loc["POC XR ratio"]["Var Val"])
@@ -860,6 +936,9 @@ class SpecGenerator():
         return (r,x,z)
         
     def calc_vslack_from_vpoc(self, vpoc: float, ppoc: float, qpoc: float, Zs: tuple):
+        # if infinite grid, then vlsack = vpoc
+        if Zs == None:
+            return vpoc
         spoc = math.sqrt(ppoc**2 + qpoc**2)
         (rgrid_pu, xgrid_pu, zgrid_pu) = Zs
 
@@ -867,6 +946,9 @@ class SpecGenerator():
         return vslack
         
     def calc_vpoc_from_vslack(self, vslack: float, ppoc: float, qpoc: float, Zs: tuple):
+        # if infinite grid, then vlsack = vpoc
+        if Zs == None:
+            return vslack
         spoc = math.sqrt(ppoc**2 + qpoc**2)
         (rgrid_pu, xgrid_pu, zgrid_pu) = Zs
         vgrid = math.sqrt((vslack**2 + 2*(ppoc*rgrid_pu + qpoc*xgrid_pu) + math.sqrt((vslack**2 + 2*(ppoc*rgrid_pu + qpoc*xgrid_pu))**2 - 4*spoc**2*zgrid_pu**2))/2)
@@ -900,20 +982,25 @@ class SpecGenerator():
                 _ = json.loads(v_data)
                 return "manual"
             except json.decoder.JSONDecodeError:
+                ic(v_data)
                 # check that the data inputs are all the same
                 if not v_data == t_data:
+                    ic()
                     return "invalid"
-                if not r_data == None:
+                if not r_data is None:
+                    ic(r_data)
                     if not v_data == r_data:
                         return "invalid"
                 # check if the data inputs can be read as a default figure
                 try:
+                    ic()
                     self.get_default_profile_type(v_data)
                     return "default"
                 except KeyError:
                     return "invalid"
         
         def get_default_profile_type(self, figure_name: str):
+            ic(figure_name)
             figure_reference = self.figure_references.loc[figure_name]
             self.profile_type =  figure_reference["Type"]
             
@@ -930,20 +1017,22 @@ class SpecGenerator():
                 self.ramps = figure_reference["Ramp"] # we can just read the ramp in as a string
         
         def read_profile(self, v_data: str, t_data: str, r_data=None):
-            input_type = self.check_valid_input(v_data=v_data, t_data=t_data, r_data=r_data) 
+            v_data = str(v_data).replace(" ","")
+            t_data = str(t_data).replace(" ","")
+            input_type = self.check_valid_input(v_data=v_data, t_data=t_data, r_data=r_data)
             # manual profile is refered to as [1,2,3]
             if input_type == "manual":
                 self.deltas = json.loads(v_data)
                 self.time_steps = json.loads(t_data)
-                if not r_data == None:
-                    self.ramps = r_data # we can just log ramp data as a string
+                if not r_data is None:
+                    self.ramps = str(r_data).replace(" ","") # we can just log ramp data as a string
             elif input_type == "default":
             # if the profile can't be recognised, then try read the default profile
             # If there is a ramp in the profile, then read the ramp of the default profile
-                if not r_data == None:
+                if r_data is None:
                     self.read_default_profile(fig=v_data, ramp=True)
                 else:
-                    self.read_default_profile(fig=v_data)
+                    self.read_default_profile(fig=v_data, ramp=True)
             elif input_type == "invalid":
                 raise CalcSheetError("time step, ramp, or delta")
             
