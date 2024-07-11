@@ -386,7 +386,9 @@ class SpecGenerator():
         qpoc = new_test["Init_Qpoc_pu_v"]
         # if not an infinite bus, then we need to calculate the slack voltage from the POC voltage, otherwise it's the same
         if new_test["Infinite_Grid_v"] == 0:
-            Zs = self.calc_grid_impedence(pu=True, fl=new_test["Grid_MVA_v"], x2r=new_test["Grid_X2R_v"])
+            # if SCR1 FRT test, then use the pre fault SCR
+            grid_fault_level = new_test["Grid_MVA_v"][0] if type(new_test["Grid_MVA_v"]) == list else new_test["Grid_MVA_v"]
+            Zs = self.calc_grid_impedence(pu=True, fl=grid_fault_level, x2r=new_test["Grid_X2R_v"])
         elif new_test["Infinite_Grid_v"] == 1:
             Zs = None
         # General voltage profile specified
@@ -625,7 +627,9 @@ class SpecGenerator():
         if 'Apply Fault (s)' in row and 'Fault Duration (s)' in row:
             fault_duration = str(row["Fault Duration (s)"])
             if self.is_number(fault_duration):
-                grid_impedance = self.calc_grid_impedence(pu=1, fl=new_test["Grid_MVA_v"], x2r=new_test["Grid_X2R_v"])
+                # In the SCR1 FRT case, the fault level changes, the fault impedance should be based on the fault level before the fault
+                grid_fault_level = new_test["Grid_MVA_v"][0] if type(new_test["Grid_MVA_v"])== list else new_test["Grid_MVA_v"]
+                grid_impedance = self.calc_grid_impedence(pu=1, fl=grid_fault_level, x2r=new_test["Grid_X2R_v"])
                 # if the fault x2r is specified then we use this, otherwise we assume the grid x2r
                 fault_x2r = row["Fault X/R"] if 'Fault X/R' in row else new_test["Grid_X2R_v"]
                 # If both fault impedance and fault voltage are specified then we use fault voltage
