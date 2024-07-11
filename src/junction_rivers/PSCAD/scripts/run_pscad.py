@@ -101,6 +101,7 @@ if __name__ == '__main__':
         file_paths = prompt_for_multiple_filepaths(prompt_title="Select Spec Files.", initial_dir=os.path.join(model_path,"specs")) #os.getcwd())
     else:
         file_paths = [args.spec_path]
+        
     for file_path in file_paths:
             print(f"   {file_path}")
     spec = load_specs_from_csv(file_paths)
@@ -198,7 +199,8 @@ if __name__ == '__main__':
     
     print("Finished Run.")
     time_end = time.time()
-    print(f"Duration of run = {time_end-time_start}")
+    duration = time_end-time_start
+    print(f"Duration of run = {duration}s, {duration/60}min")
     pool.close()
     pool.join()
     
