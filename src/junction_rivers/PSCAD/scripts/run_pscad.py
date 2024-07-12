@@ -166,7 +166,10 @@ if __name__ == '__main__':
     
     output_spec_path = os.path.join(results_dir, "output_spec.csv")
 
+    ic()
     pool = multiprocessing.Pool(processes=2)
+    ic()
+    ic(temp_results_dir)
     pool.apply_async(process_results_single_thread, [output_spec_path, temp_results_dir, results_dir])
 
     print(f"Workspace_Path:{workspace_path}")
@@ -183,7 +186,8 @@ if __name__ == '__main__':
 
     validate_pscad_model(project=project, json_path=temp_json_tuning_file, behaviour=PscadValidatorBehaviour.OVERWRITE_PSCAD)
     os.remove(temp_json_tuning_file)
-
+    ic()
+    ic(filtered_spec)
     run_pscad_spec(
         pscad=pscad,
         project=project,

@@ -1137,7 +1137,7 @@ class JRWFPlotter(Plotter):
         plt.cla() 
         fig1.clf()
         fig2.clf()
-        plt.close()
+        plt.close('all')
         ic("plot ended")
         return
 

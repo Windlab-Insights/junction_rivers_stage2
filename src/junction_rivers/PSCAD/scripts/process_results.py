@@ -6,6 +6,7 @@ import argparse
 import json
 import pandas as pd
 from collections import OrderedDict
+import icecream as ic
 from rengen.plotting.Plotter import Plotter
 from rengen.pscad import Psout
 from rengen.spec.spec import load_specs_from_csv
@@ -162,6 +163,7 @@ def process_results_single_thread(
             
         logger.info(f"{spec_path} found.")
         spec = load_specs_from_csv(spec_path)
+        ic(spec)
 
     # Results directory
     if spec_path is None:
@@ -179,6 +181,7 @@ def process_results_single_thread(
     if spec_path:
         study_list = list(zip(list(spec["DIR"].values), list(spec["File_Name"].values)))
         num_studies = len(study_list)
+    ic(study_list)
 
     # While searching for results to process
     searching = True
@@ -230,6 +233,7 @@ def process_results_single_thread(
                     if not spec is None:
                         while (relative_path,file_base_name) in study_list: 
                             study_list.remove((relative_path,file_base_name))
+                        ic(study_list)
         # Stop searching after one iteration if no spec provided
         if spec_path is None:
             logger.info("Stop Searching")

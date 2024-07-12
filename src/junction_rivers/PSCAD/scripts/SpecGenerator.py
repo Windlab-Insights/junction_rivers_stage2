@@ -225,7 +225,7 @@ class SpecGenerator():
                             'Grid_SCR': scr_vals,
                             'Grid_X2R_v': x2r,
                             'Grid_MVA_v': [self.calc_fault_level(scr_val) for scr_val in scr_vals],
-                            'Grid_MVA_t': [0, row["Apply Fault (s)"], row["End Run (s)"]],
+                            'Grid_MVA_t': [0, row["Apply Fault (s)"] + row["Fault Duration (s)"], row["End Run (s)"]],
                         })
                     else:
                         raise CalcSheetError("SCRs")
