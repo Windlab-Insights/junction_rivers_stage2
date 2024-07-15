@@ -1139,6 +1139,7 @@ class JRWFPlotter(Plotter):
         fig2.clf()
         plt.close('all')
         ic("plot ended")
+        ic.enable()
         return
 
     def plot_curve(self, x_values: List[float], y_values: List[float], ax: plt.Axes, label=None):

@@ -27,8 +27,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("process_results")
 logger.setLevel(logging.INFO)
 
-ANALYSIS = 0 ###
-
+ANALYSIS = False ###
+''''''
 def per_scenario_postprocessing(spec_dict: dict, df: pd.DataFrame):
     
     # Signals Added to Dataframe
@@ -38,29 +38,29 @@ def per_scenario_postprocessing(spec_dict: dict, df: pd.DataFrame):
     # Per Scenario Analysis Added to JSON File
     spec_dict["analysis"] = {}
         
-    if "s5255_Fault_Ures" in spec_dict["File_Name"] or "s5255_Fault_Ohms" in spec_dict["File_Name"]:
+    # if "s5255_Fault_Ures" in spec_dict["File_Name"] or "s5255_Fault_Ohms" in spec_dict["File_Name"]:
         
-            spec_dict["analysis"].update(
-                s5255_low_voltage_fault_analysis(spec_dict["substitutions"], spec_dict, df)
-            )
+    #         spec_dict["analysis"].update(
+    #             s5255_low_voltage_fault_analysis(spec_dict["substitutions"], spec_dict, df)
+    #         )
             
-    if "s5255_Fault_TOV" in spec_dict["File_Name"]:
+    # if "s5255_Fault_TOV" in spec_dict["File_Name"]:
         
-        spec_dict["analysis"].update(
-            s5255_high_voltage_fault_analysis(spec_dict["substitutions"], spec_dict, df)
-        )
+    #     spec_dict["analysis"].update(
+    #         s5255_high_voltage_fault_analysis(spec_dict["substitutions"], spec_dict, df)
+    #     )
         
-    if "s5258" in spec_dict["File_Name"] or "s5253" in spec_dict["File_Name"]:
+    # if "s5258" in spec_dict["File_Name"] or "s5253" in spec_dict["File_Name"]:
         
-        spec_dict["analysis"].update(
-            s5253_s5258_freq_dist_analysis(spec_dict, df)
-        )
+    #     spec_dict["analysis"].update(
+    #         s5253_s5258_freq_dist_analysis(spec_dict, df)
+    #     )
     
-    if "Pref" in spec_dict["File_Name"]:
+    # if "Pref" in spec_dict["File_Name"]:
         
-        spec_dict["analysis"].update(
-            s52514_pref_step_analysis(spec_dict, df)
-        )
+    #     spec_dict["analysis"].update(
+    #         s52514_pref_step_analysis(spec_dict, df)
+    #     )
     
     return spec_dict, df
     
@@ -124,22 +124,18 @@ def process_results(
         )
     except Exception as e:
         print(f"---------PLOTTER FAILED WITH EXCEPTION: {e}")
-    
     # Add analysis info to data frame
     try:
         if ANALYSIS:
             analysis.fdroop(spec_dict["substitutions"], spec_dict, df)
     except Exception as e:
         print(f'---------FDROOP ANALYSIS FAILED WITH EXCEPTION: {e}')
-    
     # Save 
     with open(json_path, 'w') as json_file:
         json.dump(spec_dict,json_file, indent=2)
-    
     if delete_src_data:
         os.remove(src_data_path)
         os.remove(src_json_path)
-        
     return
 
 
@@ -195,16 +191,15 @@ def process_results_single_thread(
         for root, dirs, files in os.walk(temp_results_dir):
             
             for file in files:
-                
                 file_ext = os.path.splitext(file)[1]
                 file_base_name = os.path.splitext(file)[0]
+                relative_path = os.path.relpath(root, temp_results_dir)
                 
-                
-                if file_ext == data_source_extension:
+                if file_ext == data_source_extension and (relative_path,file_base_name) in study_list:
                     src_data_path = os.path.join(root, file_base_name + data_source_extension)
                     src_json_path = os.path.join(root, file_base_name + ".json")
                     
-                    relative_path = os.path.relpath(root, temp_results_dir)
+                    
                     dst_results_dir = os.path.join(results_dir, relative_path)
                     os.makedirs(dst_results_dir, exist_ok=True)
                     
@@ -230,15 +225,16 @@ def process_results_single_thread(
                     internal_pdf_file = open(pdf_path, 'rb')
                     pdf_writer.append(fileobj=internal_pdf_file, pages=(0,1))
                     # Remove study from study list if spec provided
+                    ic(spec)
                     if not spec is None:
-                        while (relative_path,file_base_name) in study_list: 
+                        while (relative_path,file_base_name) in study_list:
+
                             study_list.remove((relative_path,file_base_name))
                         ic(study_list)
         # Stop searching after one iteration if no spec provided
         if spec_path is None:
             logger.info("Stop Searching")
             searching = False
-            
         # Stop searching after all studies removed from study list
         elif not study_list:
             searching = False
@@ -279,7 +275,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     logger.info("Started: process_results.py")
-    
+    ic()
     if args.curr_results_dir is None:
         print("Please Select Current Results Directory:")
         curr_results_dir = prompt_for_directory_path(prompt_title="Select Current Results Dir.", initial_dir="G:\\Junction_Rivers\\JRWF_PSCAD_Models") #os.getcwd())
@@ -300,7 +296,7 @@ if __name__ == '__main__':
     
     plotter = JRWFPlotter()
     analysis = Analysis()
-    
+    ic()
     spec = None
     if not spec_path is None:
         while not os.path.exists(spec_path):
@@ -391,9 +387,10 @@ if __name__ == '__main__':
         # Stop searching after all studies removed from study list
         elif not study_list:
             searching = False
+            ic()
             logger.info("Processed all results")
         
         # wait between searches 
         time.sleep(30)
-        
+    ic()
     logger.warning("Exiting Process Results.")
