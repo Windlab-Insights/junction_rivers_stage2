@@ -147,6 +147,7 @@ def process_results_single_thread(
     delete_src_data: bool = False,
     data_source_extension: str = ".psout",
 ):
+    ic()
     plotter = JRWFPlotter()
     analysis = Analysis()
     pdf_writer = PdfWriter()
@@ -158,6 +159,7 @@ def process_results_single_thread(
             logger.info(f"{spec_path} not found. Waiting 30 seconds...")
             
         logger.info(f"{spec_path} found.")
+        ic(spec_path)
         spec = load_specs_from_csv(spec_path)
         ic(spec)
 

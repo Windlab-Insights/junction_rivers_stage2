@@ -9,14 +9,10 @@ from rengen.plotting.Plotter import Plotter
 from rengen.pscad import Psout
 from rengen.spec.spec import load_specs_from_csv
 from rengen.utils.time_utils import get_date_time_str
+from icecream import ic
 
-from bungaban.analysis.analysis__csr_s5255_low_voltage_faults import per_scenario_analysis as s5255_low_voltage_fault_analysis
-from bungaban.analysis.analysis__csr_s5255_high_voltage_faults import per_scenario_analysis as s5255_high_voltage_fault_analysis
-from bungaban.analysis.analysis__csr_s52514_pref_step import s52514_pref_step_analysis
-from bungaban.analysis.analysis__csr_s5253_s5258_freq_dist import s5253_s5258_freq_dist_analysis
-from bungaban.analysis.signal_analysis import get_expected_fdroop_signal, get_expected_vdroop_signal
-
-from bungaban.plotting.BBWFPlotterV5 import BBWFPlotter
+from junction_rivers.Analysis import Analysis
+from junction_rivers.plotting.JRWFPlotterV2 import JRWFPlotter
 
 RUN_POST_PROCESSING = False
 
@@ -26,41 +22,11 @@ logger.setLevel(logging.INFO)
 
 
 def per_scenario_postprocessing(spec_dict: dict, df: pd.DataFrame):
-    
-    # # Signals Added to Dataframe
-    # df["POC_Pref_Fdroop_MW"] = get_expected_fdroop_signal(spec_dict, df)
-    # df["Qref_droop_Ideal_MVAr"]= get_expected_vdroop_signal(spec_dict, df)
        
     # Per Scenario Analysis Added to JSON File
     spec_dict["analysis"] = {}
-        
-    if "s5255_Fault_Ures" in spec_dict["File_Name"] or "s5255_Fault_Ohms" in spec_dict["File_Name"]:
-        
-            spec_dict["analysis"].update(
-                s5255_low_voltage_fault_analysis(spec_dict["substitutions"], spec_dict, df)
-            )
-            
-    if "s5255_Fault_TOV" in spec_dict["File_Name"]:
-        
-        spec_dict["analysis"].update(
-            s5255_high_voltage_fault_analysis(spec_dict["substitutions"], spec_dict, df)
-        )
-        
-    if "s5258" in spec_dict["File_Name"] or "s5253" in spec_dict["File_Name"]:
-        
-        spec_dict["analysis"].update(
-            s5253_s5258_freq_dist_analysis(spec_dict, df)
-        )
-    
-    if "Pref" in spec_dict["File_Name"]:
-        
-        spec_dict["analysis"].update(
-            s52514_pref_step_analysis(spec_dict, df)
-        )
     
     return spec_dict, df
-    
-    
     
 def process_results(
     src_data_path: os.PathLike,
@@ -74,7 +40,7 @@ def process_results(
     delete_src_data: bool,
     run_post_processing: bool = RUN_POST_PROCESSING
 ):
-    
+    ic()
     # Load Results Dataframe
     logger.info(f"Reading: {src_data_path}")
     if ".psout" in src_data_path:
@@ -108,12 +74,17 @@ def process_results(
     
     # Run Plotter Script
     logger.info("Plotting Results...")
-    plotter.plot_from_df_and_dict(
-        df=df,
-        spec_dict=spec_dict,
-        pdf_path=pdf_path,
-        png_path=png_path,
-    )
+    try:
+        plotter.plot_from_df_and_dict(
+            df=df,
+            spec_dict=spec_dict,
+            pdf_path=pdf_path,
+            png_path=png_path,
+        )
+    except Exception as e:
+        ic.enable()
+        ic()
+        ic(e)
     
     logger.info("Saving JSON Metadata...")
     with open(json_path, 'w') as json_file:
@@ -136,7 +107,8 @@ def process_results_multi_thread(
     delete_src_data: bool = False,
     data_source_extension: str = ".psout",
 ):
-    plotter = BBWFPlotter()
+    ic()
+    plotter = JRWFPlotter()
 
     spec = None
     if spec_path:
@@ -200,7 +172,6 @@ def process_results_multi_thread(
                         plotter,
                         delete_src_data,
                     ])
-
                     # Remove study from study list if it was in there.
                     while (relative_path, file_base_name) in study_list:
                         study_list.remove((relative_path, file_base_name))
@@ -233,6 +204,7 @@ def process_results_single_thread(
     delete_src_data: bool = False,
     data_source_extension: str = ".psout",
 ):
+    ic()
     process_results_multi_thread(spec_path, temp_results_dir, results_dir, 1, secs_to_remove_from_traces,
                                  delete_src_data, data_source_extension)
 
@@ -249,7 +221,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     logger.info("Started: process_results.py")
-    
+    ic()
     spec_path = args.output_spec_path    
     temp_results_dir = args.temp_results_dir
     results_dir = args.results_dir
@@ -257,6 +229,6 @@ if __name__ == '__main__':
     secs_to_remove_from_traces = args.secs_to_remove
     delete_src_data = args.delete_src_data
     data_source_extension = args.data_source
-
+    ic()
     process_results_multi_thread(spec_path, temp_results_dir, results_dir, processes, secs_to_remove_from_traces,
                                  delete_src_data, data_source_extension)

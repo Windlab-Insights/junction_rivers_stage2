@@ -1042,76 +1042,76 @@ class JRWFPlotter(Plotter):
                
         except Exception as e:
             print(e)
-        # -----------------------------------------------------------------------------------------------------------------
-        #  Analysis Annotations: 
-        # -----------------------------------------------------------------------------------------------------------------
-        ic("analysis section")
-        if "expected_poc_p_ramp_t" in spec_dict["analysis"]:
+        # # -----------------------------------------------------------------------------------------------------------------
+        # #  Analysis Annotations: 
+        # # -----------------------------------------------------------------------------------------------------------------
+        # ic("analysis section")
+        # if "expected_poc_p_ramp_t" in spec_dict["analysis"]:
             
-            self.plot_curve(
-                x_values = [float(v) for v in list(spec_dict["analysis"]["expected_poc_p_ramp_t"])],
-                y_values =  [float(v) for v in list(spec_dict["analysis"]["expected_poc_p_ramp_mw"])],
-                ax=ax_poc[0],
-                label="Expected POC P NEMDE Ramp"
-            )
+        #     self.plot_curve(
+        #         x_values = [float(v) for v in list(spec_dict["analysis"]["expected_poc_p_ramp_t"])],
+        #         y_values =  [float(v) for v in list(spec_dict["analysis"]["expected_poc_p_ramp_mw"])],
+        #         ax=ax_poc[0],
+        #         label="Expected POC P NEMDE Ramp"
+        #     )
         
-        if "Fault_iq_AEMO_Rise_Time" in spec_dict["analysis"]:
+        # if "Fault_iq_AEMO_Rise_Time" in spec_dict["analysis"]:
             
-            rise_time = float(spec_dict["analysis"]["Fault_iq_AEMO_Rise_Time"])
-            self.plot_text_annotations(
-                text=f"Rise Time = {1000 * rise_time:.2f} ms", 
-                x_pos=rise_time+float(spec_dict["Fault_Time"]), 
-                y_pos_ratio=0.1, 
-                ax=ax_poc[number_of_rows - 2]
-            )
-            self.plot_vertical_lines(
-                x_pos=float(spec_dict["Fault_Time"]), 
-                ax=ax_poc[number_of_rows - 2]
-            )
-            self.plot_vertical_lines(
-                x_pos=float(spec_dict["analysis"]["Fault_iq_AEMO_Rise_Time"])+float(spec_dict["Fault_Time"]), 
-                ax=ax_poc[number_of_rows - 2]
-            )
-            self.plot_horrisontal_lines(
-                y_pos=float(spec_dict["analysis"]["Fault_iq_mcc_pu"]), 
-                ax=ax_poc[number_of_rows - 2]
-            )
-            
-            
-        if "Fault_iq_AEMO_Settling_Time" in spec_dict["analysis"]:   
-            
-            settling_time = float(spec_dict["analysis"]["Fault_iq_AEMO_Settling_Time"])
-            self.plot_text_annotations(
-                text=f"Settling Time = {1000 * settling_time:.2f} ms", 
-                x_pos=settling_time+float(spec_dict["Fault_Time"]), 
-                y_pos_ratio=0.9, 
-                ax=ax_poc[number_of_rows - 2]
-            )
-            self.plot_vertical_lines(
-                x_pos=float(spec_dict["analysis"]["Fault_iq_AEMO_Settling_Time"])+float(spec_dict["Fault_Time"]), 
-                ax=ax_poc[number_of_rows - 2])         
+        #     rise_time = float(spec_dict["analysis"]["Fault_iq_AEMO_Rise_Time"])
+        #     self.plot_text_annotations(
+        #         text=f"Rise Time = {1000 * rise_time:.2f} ms", 
+        #         x_pos=rise_time+float(spec_dict["Fault_Time"]), 
+        #         y_pos_ratio=0.1, 
+        #         ax=ax_poc[number_of_rows - 2]
+        #     )
+        #     self.plot_vertical_lines(
+        #         x_pos=float(spec_dict["Fault_Time"]), 
+        #         ax=ax_poc[number_of_rows - 2]
+        #     )
+        #     self.plot_vertical_lines(
+        #         x_pos=float(spec_dict["analysis"]["Fault_iq_AEMO_Rise_Time"])+float(spec_dict["Fault_Time"]), 
+        #         ax=ax_poc[number_of_rows - 2]
+        #     )
+        #     self.plot_horrisontal_lines(
+        #         y_pos=float(spec_dict["analysis"]["Fault_iq_mcc_pu"]), 
+        #         ax=ax_poc[number_of_rows - 2]
+        #     )
             
             
-        if "active_power_rampdown_start_s" in spec_dict["analysis"]: 
+        # if "Fault_iq_AEMO_Settling_Time" in spec_dict["analysis"]:   
             
-            self.plot_text_annotations(
-                text="POC P Ramp Down Region", 
-                x_pos=float(spec_dict["analysis"]["active_power_rampdown_start_s"]),
-                y_pos_ratio=0.1, 
-                ax=ax_poc[0]
-            )
-            self.plot_vertical_lines(
-                x_pos=float(spec_dict["analysis"]["active_power_rampdown_start_s"]), 
-                ax=ax_poc[0]
-            )
-            self.plot_vertical_lines(
-                x_pos=float(spec_dict["analysis"]["active_power_rampdown_expected_end_s"]), 
-                ax=ax_poc[0]
-            )
-            self.plot_horrisontal_lines(
-                y_pos=float(spec_dict["analysis"]["active_power_rampdown_threshold_mw"]), 
-                ax=ax_poc[0]
-            )
+        #     settling_time = float(spec_dict["analysis"]["Fault_iq_AEMO_Settling_Time"])
+        #     self.plot_text_annotations(
+        #         text=f"Settling Time = {1000 * settling_time:.2f} ms", 
+        #         x_pos=settling_time+float(spec_dict["Fault_Time"]), 
+        #         y_pos_ratio=0.9, 
+        #         ax=ax_poc[number_of_rows - 2]
+        #     )
+        #     self.plot_vertical_lines(
+        #         x_pos=float(spec_dict["analysis"]["Fault_iq_AEMO_Settling_Time"])+float(spec_dict["Fault_Time"]), 
+        #         ax=ax_poc[number_of_rows - 2])         
+            
+            
+        # if "active_power_rampdown_start_s" in spec_dict["analysis"]: 
+            
+        #     self.plot_text_annotations(
+        #         text="POC P Ramp Down Region", 
+        #         x_pos=float(spec_dict["analysis"]["active_power_rampdown_start_s"]),
+        #         y_pos_ratio=0.1, 
+        #         ax=ax_poc[0]
+        #     )
+        #     self.plot_vertical_lines(
+        #         x_pos=float(spec_dict["analysis"]["active_power_rampdown_start_s"]), 
+        #         ax=ax_poc[0]
+        #     )
+        #     self.plot_vertical_lines(
+        #         x_pos=float(spec_dict["analysis"]["active_power_rampdown_expected_end_s"]), 
+        #         ax=ax_poc[0]
+        #     )
+        #     self.plot_horrisontal_lines(
+        #         y_pos=float(spec_dict["analysis"]["active_power_rampdown_threshold_mw"]), 
+        #         ax=ax_poc[0]
+        #     )
         
         
         ic("plot saving")
