@@ -135,8 +135,8 @@ def process_results_multi_thread(
     while True:
         #logger.info("Scanning for new results...")
         args = []
-        ic()
-        ic(args)
+        # ic()
+        # ic(args)
         for root, dirs, files in os.walk(temp_results_dir):
             relative_path = os.path.relpath(root, temp_results_dir)
             dst_results_dir = os.path.join(results_dir, relative_path)
@@ -169,9 +169,10 @@ def process_results_multi_thread(
                         plotter,
                         delete_src_data,
                     ])
-                    ic("________________")
+                    # ic("________________")
                     for arg in args:
                         ic(arg[3])
+                        print("disabled ic")
                     # Remove study from study list if it was in there.
                     while (relative_path, file_base_name) in study_list:
                         study_list.remove((relative_path, file_base_name))
@@ -190,7 +191,7 @@ def process_results_multi_thread(
 
         # Stop searching after all studies removed from study list
         if study_list:
-            ic(study_list)
+            # ic(study_list)
             time.sleep(30)
         else:
             logger.info("Processed all results")
