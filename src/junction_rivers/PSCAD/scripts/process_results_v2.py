@@ -146,8 +146,7 @@ def process_results_multi_thread(
                 file_base_name = os.path.splitext(file)[0]
 
                 file_in_study_list = (relative_path, file_base_name) in study_list
-                # if file_ext_matched and (file_in_study_list or not study_list):
-                if file_ext_matched and file_in_study_list:
+                if file_ext_matched and (file_in_study_list or not spec_path):
                     src_data_path = os.path.join(root, file_base_name + data_source_extension)
                     src_json_path = os.path.join(root, file_base_name + ".json")
 
