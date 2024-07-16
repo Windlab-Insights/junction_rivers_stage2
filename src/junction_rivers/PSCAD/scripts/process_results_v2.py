@@ -171,7 +171,7 @@ def process_results_multi_thread(
                     ])
                     # ic("________________")
                     for arg in args:
-                        ic(arg[3])
+                        # ic(arg[3])
                         print("disabled ic")
                     # Remove study from study list if it was in there.
                     while (relative_path, file_base_name) in study_list:
