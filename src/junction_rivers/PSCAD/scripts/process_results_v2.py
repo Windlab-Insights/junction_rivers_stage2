@@ -40,9 +40,8 @@ def process_results(
     delete_src_data: bool,
     run_post_processing: bool = RUN_POST_PROCESSING
 ):
-    ic()
     # Load Results Dataframe
-    logger.info(f"Reading: {src_data_path}")
+    #logger.info(f"Reading: {src_data_path}")
     if ".psout" in src_data_path:
         psout = Psout(src_data_path)
         df = psout.to_df()
@@ -66,14 +65,14 @@ def process_results(
     
     # # Run Postprocessing / Analysis
     if run_post_processing:
-        logger.info("Run Postprocessing...")
+        #logger.info("Run Postprocessing...")
         try:
             spec_dict, df = per_scenario_postprocessing(spec_dict, df)
         except:
             logger.warning("per scenario postprocessing failed")
     
     # Run Plotter Script
-    logger.info("Plotting Results...")
+    #logger.info("Plotting Results...")
     try:
         plotter.plot_from_df_and_dict(
             df=df,
@@ -83,15 +82,14 @@ def process_results(
         )
     except Exception as e:
         ic.enable()
-        ic()
         ic(e)
     
-    logger.info("Saving JSON Metadata...")
+    #logger.info("Saving JSON Metadata...")
     with open(json_path, 'w') as json_file:
         json.dump(spec_dict, json_file, indent=2)
     
     if delete_src_data:
-        logger.info("Deleting Source Data...")
+        #logger.info("Deleting Source Data...")
         os.remove(src_data_path)
         os.remove(src_json_path)
         
@@ -107,7 +105,6 @@ def process_results_multi_thread(
     delete_src_data: bool = False,
     data_source_extension: str = ".psout",
 ):
-    ic()
     plotter = JRWFPlotter()
 
     spec = None
@@ -116,7 +113,7 @@ def process_results_multi_thread(
             time.sleep(30)
             logger.info(f"{spec_path} not found. Waiting 30 seconds...")
 
-        logger.info(f"{spec_path} found.")
+        #logger.info(f"{spec_path} found.")
         spec = load_specs_from_csv(spec_path)
 
     # Results directory
@@ -134,12 +131,12 @@ def process_results_multi_thread(
     if spec_path:
         study_list = list(zip(list(spec["DIR"].values), list(spec["File_Name"].values)))
         num_studies = len(study_list)
-
     # While searching for results to process
     while True:
-        logger.info("Scanning for new results...")
+        #logger.info("Scanning for new results...")
         args = []
-
+        ic()
+        ic(args)
         for root, dirs, files in os.walk(temp_results_dir):
             relative_path = os.path.relpath(root, temp_results_dir)
             dst_results_dir = os.path.join(results_dir, relative_path)
@@ -149,7 +146,7 @@ def process_results_multi_thread(
                 file_base_name = os.path.splitext(file)[0]
 
                 file_in_study_list = (relative_path, file_base_name) in study_list
-                if file_ext_matched and (file_in_study_list or not study_list):
+                if file_ext_matched and (file_in_study_list or not spec_path):
                     src_data_path = os.path.join(root, file_base_name + data_source_extension)
                     src_json_path = os.path.join(root, file_base_name + ".json")
 
@@ -172,10 +169,13 @@ def process_results_multi_thread(
                         plotter,
                         delete_src_data,
                     ])
+                    ic("________________")
+                    for arg in args:
+                        ic(arg[3])
                     # Remove study from study list if it was in there.
                     while (relative_path, file_base_name) in study_list:
                         study_list.remove((relative_path, file_base_name))
-
+                    
         if args:
             remaining_str = f"({len(study_list)} of {num_studies} remaining)" if spec_path else ""
             logger.info(f"Processing {len(args)} Studies... {remaining_str}")
@@ -190,10 +190,13 @@ def process_results_multi_thread(
 
         # Stop searching after all studies removed from study list
         if study_list:
+            ic(study_list)
             time.sleep(30)
         else:
             logger.info("Processed all results")
             break
+    plotter.plot_summary_pdf(results_dir)    
+    
 
 
 def process_results_single_thread(
@@ -204,9 +207,9 @@ def process_results_single_thread(
     delete_src_data: bool = False,
     data_source_extension: str = ".psout",
 ):
-    ic()
     process_results_multi_thread(spec_path, temp_results_dir, results_dir, 1, secs_to_remove_from_traces,
                                  delete_src_data, data_source_extension)
+    
 
 
 if __name__ == '__main__':
@@ -221,7 +224,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     logger.info("Started: process_results.py")
-    ic()
+
     spec_path = args.output_spec_path    
     temp_results_dir = args.temp_results_dir
     results_dir = args.results_dir
@@ -229,6 +232,7 @@ if __name__ == '__main__':
     secs_to_remove_from_traces = args.secs_to_remove
     delete_src_data = args.delete_src_data
     data_source_extension = args.data_source
-    ic()
+    
     process_results_multi_thread(spec_path, temp_results_dir, results_dir, processes, secs_to_remove_from_traces,
                                  delete_src_data, data_source_extension)
+    

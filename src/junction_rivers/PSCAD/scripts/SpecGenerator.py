@@ -881,7 +881,7 @@ class SpecGenerator():
             return True
         except:
             return False
-        
+            
     def read_scr_and_x2r(self, row_scr: str, row_x2r: str):
         scr_strs = str(row_scr).split("; ")
         x2r_strs = str(row_x2r).split("; ")
@@ -890,31 +890,40 @@ class SpecGenerator():
         poc_x2r = json.loads(self.system_inf.loc["POC XR ratio"]["Var Val"])
         for scr_str in scr_strs:
             for x2r_str in x2r_strs:
+                # get a list of x2r values
+                x2rs = []
+                if x2r_str.isnumeric():
+                    x2rs = [float(x2r_str)]
+                elif x2r_str == "POC":
+                    x2rs = [float(poc_x2r[0]), float(poc_x2r[1])]
+                elif x2r_str == "POC MIN":
+                    x2rs = [float(poc_x2r[0])]
+                elif x2r_str == "POC MAX":
+                    x2rs = [float(poc_x2r[1])]
+                else:
+                    raise CalcSheetError("X2R")
+                # add x2r info to scr info
                 if scr_str.isnumeric():
-                    if x2r_str.isnumeric():
-                        scr_and_x2r.append((float(scr_str), float(x2r_str)))
-                    elif x2r_str == "POC":
-                        scr_and_x2r.append((float(scr_str), float(poc_x2r[0])))
-                        scr_and_x2r.append((float(scr_str), float(poc_x2r[1])))
-                    else:
-                        raise CalcSheetError("X2R")
+                    for x2r in x2rs:
+                        scr_and_x2r.append((float(scr_str), x2r))
                 elif scr_str == "POC":
-                    if x2r_str.isnumeric():
-                        scr_and_x2r.append((float(poc_scr[0]), float(x2r_str)))
-                        scr_and_x2r.append((float(poc_scr[1]), float(x2r_str)))
-                    elif x2r_str == "POC":
-                        scr_and_x2r.append((float(poc_scr[0]), float(poc_x2r[0])))
-                        scr_and_x2r.append((float(poc_scr[1]), float(poc_x2r[1])))
+                    # if both SCR and X/R are POC, then we only add two rows
+                    if x2r_str == "POC":
+                        scr_and_x2r.append((float(poc_scr[0]), x2rs[0]))
+                        scr_and_x2r.append((float(poc_scr[1]), x2rs[1]))
                     else:
-                        raise CalcSheetError("X2R")
+                        for x2r in x2rs:
+                            scr_and_x2r.append((float(poc_scr[0]), x2r))
+                            scr_and_x2r.append((float(poc_scr[1]), x2r))
+                elif scr_str == "POC MIN":
+                    for x2r in x2rs:
+                        scr_and_x2r.append((float(poc_scr[0]), x2r))
+                elif scr_str == "POC MAX":
+                    for x2r in x2rs:
+                        scr_and_x2r.append((float(poc_scr[1]), x2r))
                 elif self.is_list(scr_str):
-                    if x2r_str.isnumeric():
-                        scr_and_x2r.append((scr_str, float(x2r_str)))
-                    elif x2r_str == "POC":
-                        scr_and_x2r.append((scr_str, float(poc_x2r[0])))
-                        scr_and_x2r.append((scr_str, float(poc_x2r[1])))
-                    else:
-                        raise CalcSheetError("X2R")
+                    for x2r in x2rs:
+                        scr_and_x2r.append((scr_str, x2r))
                 else:
                     raise CalcSheetError("SCR")
         return scr_and_x2r

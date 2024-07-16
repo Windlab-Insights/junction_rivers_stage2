@@ -17,6 +17,7 @@ import numpy as np
 from matplotlib.table import Cell, Table
 from scipy.signal import butter, lfilter
 from enum import Enum, auto
+from PyPDF2 import PdfWriter, PdfReader
 
 plt.rcParams['axes.autolimit_mode'] = 'round_numbers'
 plt.rcParams['axes.xmargin'] = 0
@@ -54,6 +55,31 @@ NUM_BESS = 1
 PLOT_INIT = False
 
 class JRWFPlotter(Plotter):
+    
+    def plot_summary_pdf(
+        self,
+        results_dir: os.PathLike
+    ):
+        # make the path to the summary pdf
+        os.makedirs(results_dir,exist_ok=True)
+        external_pdf_path = os.path.join(results_dir,"plot_summary.pdf")
+        pdf_writer = PdfWriter()
+        files_plotted = []
+        # iterate through the pathways in the results folder
+        for root, dirs, files in os.walk(results_dir):
+            relative_path = os.path.relpath(root, results_dir)
+            dst_results_dir = os.path.join(results_dir, relative_path)
+            for file in files:
+                file_ext = os.path.splitext(file)[1]
+                if file_ext == ".pdf" and file not in files_plotted:
+                    pdf_path = os.path.join(dst_results_dir, file)
+                    internal_pdf_file = open(pdf_path, 'rb')
+                    pdf_writer.append(fileobj=internal_pdf_file, pages=(0,1))
+                    files_plotted.append(file)
+        external_pdf = open(external_pdf_path, "wb")
+        pdf_writer.write(external_pdf)
+        pdf_writer.close()
+        external_pdf.close()
 
     def plot_from_df_and_dict(
             self,
@@ -1140,6 +1166,7 @@ class JRWFPlotter(Plotter):
         plt.close('all')
         ic("plot ended")
         ic.enable()
+        print(f"Plotted to: {pdf_path}")
         return
 
     def plot_curve(self, x_values: List[float], y_values: List[float], ax: plt.Axes, label=None):

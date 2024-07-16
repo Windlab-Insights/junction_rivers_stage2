@@ -78,7 +78,6 @@ if __name__ == '__main__':
     parser.add_argument("-p", '--model-path', type=str, default=None)
     args = parser.parse_args()
 
-    ic(args)
     time_start = time.time()
 
     volley_size = args.volley_size
@@ -190,7 +189,6 @@ if __name__ == '__main__':
     validate_pscad_model(project=project, json_path=temp_json_tuning_file, behaviour=PscadValidatorBehaviour.OVERWRITE_PSCAD)
     os.remove(temp_json_tuning_file)
     ic()
-    ic(filtered_spec)
     run_pscad_spec(
         pscad=pscad,
         project=project,
