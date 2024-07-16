@@ -177,7 +177,7 @@ if __name__ == '__main__':
     # ic()
     # ic(temp_results_dir)
     # pool.apply_async(process_results_single_thread, [output_spec_path, temp_results_dir, results_dir])
-    ic()
+    # ic()
     pool = multiprocessing.Pool(processes=2) 
     pool.apply_async(subprocess.run, [["py","./process_results_v2.py",'-s',output_spec_path,'-t',temp_results_dir,'-r',results_dir]])
 
@@ -195,7 +195,7 @@ if __name__ == '__main__':
 
     validate_pscad_model(project=project, json_path=temp_json_tuning_file, behaviour=PscadValidatorBehaviour.OVERWRITE_PSCAD)
     os.remove(temp_json_tuning_file)
-    ic()
+    # ic()
     run_pscad_spec(
         pscad=pscad,
         project=project,
