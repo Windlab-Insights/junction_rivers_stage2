@@ -4,7 +4,7 @@ import shutil
 import subprocess
 import time
 from multiprocessing import Pool
-from junction_rivers.PSCAD.scripts.process_results import process_results_single_thread
+from junction_rivers.PSCAD.scripts.process_results_v2 import process_results_single_thread
 from icecream import ic
 import argparse
 import json
@@ -78,7 +78,6 @@ if __name__ == '__main__':
     parser.add_argument("-p", '--model-path', type=str, default=None)
     args = parser.parse_args()
 
-    ic(args)
     time_start = time.time()
 
     volley_size = args.volley_size
@@ -166,8 +165,14 @@ if __name__ == '__main__':
     
     output_spec_path = os.path.join(results_dir, "output_spec.csv")
 
-    pool = multiprocessing.Pool(processes=2)
-    pool.apply_async(process_results_single_thread, [output_spec_path, temp_results_dir, results_dir])
+    # ic()
+    # pool = multiprocessing.Pool(processes=2)
+    # ic()
+    # ic(temp_results_dir)
+    # pool.apply_async(process_results_single_thread, [output_spec_path, temp_results_dir, results_dir])
+    ic()
+    pool = multiprocessing.Pool(processes=2) 
+    pool.apply_async(subprocess.run, [["py","./process_results_v2.py",'-s',output_spec_path,'-t',temp_results_dir,'-r',results_dir]])
 
     print(f"Workspace_Path: {workspace_path}")
     pscad, project = launch_pscad(workspace_path=workspace_path, project_name=PROJECT_NAME, copy_to_dir=temp_path)
@@ -183,7 +188,7 @@ if __name__ == '__main__':
 
     validate_pscad_model(project=project, json_path=temp_json_tuning_file, behaviour=PscadValidatorBehaviour.OVERWRITE_PSCAD)
     os.remove(temp_json_tuning_file)
-
+    ic()
     run_pscad_spec(
         pscad=pscad,
         project=project,

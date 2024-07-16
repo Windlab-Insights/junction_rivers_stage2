@@ -100,14 +100,18 @@ class SpecGenerator():
         
 ################# ADD PARAMS FOR A TEST ################
     # for rows which have just been added to the new spec sheet, add new information and split into new rows if needed
-    def update_rows(self, specs: list, in_row: dict, filename_index: int):
+    def update_rows(self, specs: list, in_row: dict):
         # if there are no specs to add, then just return the test line as is
         if len(specs) == 0:
             return [in_row]
         # create a new list of tests
         out_rows = []
-        # get the file name index
+        # get the file name index to ensure unique file names
         filename = in_row["File_Name"].split("-")
+        if len(filename) == 2:
+            filename_index = int(filename[1]) * len(specs)
+        else: # if there is no existing index then set to zero
+            filename_index = 0
         # for multiple specs, we want to add new tests for each one
         for spec in specs:
             # create a copy of the existing test to update without changing the original one
@@ -124,77 +128,67 @@ class SpecGenerator():
         first_test = dict()
         # remove columns where the cell is blank
         row = row.dropna()
-        filename_index = 0
-        first_test.update({'File_Name': f'{category}_test_{str(row["Test"]).replace("-","_")}-{filename_index}'})
+        first_test.update({'File_Name': f'{category}_test_{str(row["Test"]).replace("-","_")}'})
         first_test.update({'DIR': category})
         first_test.update({'En_SMIB_init_v': 0})
         new_tests = [first_test]
         
         file_infos = self.add_file_info(row)
-        new_tests = self.update_rows(file_infos, first_test, filename_index)
+        new_tests = self.update_rows(file_infos, first_test)
         
         # for each spec sheet row which has been added (a new run), add the new information.
         out_rows = []
         for new_test in new_tests:
             q_specs = self.add_q_specs(row, new_test)
-            filename_index = int(new_test["File_Name"].split("-")[1]) * len(q_specs) # pass in the filename index to ensure unique file names
-            out_rows.extend(self.update_rows(q_specs, new_test, filename_index))
+            out_rows.extend(self.update_rows(q_specs, new_test))
             new_tests = out_rows[:]
         
         out_rows = []
         for new_test in new_tests:
             p_ref_specs = self.add_p_ref_specs(row, new_test)
-            filename_index = int(new_test["File_Name"].split("-")[1]) * len(p_ref_specs)
-            out_rows.extend(self.update_rows(p_ref_specs, new_test, filename_index))
+            out_rows.extend(self.update_rows(p_ref_specs, new_test))
             new_tests = out_rows[:]
         
         out_rows = []
         for new_test in new_tests:
             v_specs = self.add_v_specs(row, new_test)
-            filename_index = int(new_test["File_Name"].split("-")[1]) * len(v_specs)
-            out_rows.extend(self.update_rows(v_specs, new_test, filename_index))
+            out_rows.extend(self.update_rows(v_specs, new_test))
         new_tests = out_rows[:]
         
         out_rows = []
         for new_test in new_tests:
             freq_specs = self.add_freq_specs(row)
-            filename_index = int(new_test["File_Name"].split("-")[1]) * len(freq_specs)
-            out_rows.extend(self.update_rows(freq_specs, new_test, filename_index))
+            out_rows.extend(self.update_rows(freq_specs, new_test))
         new_tests = out_rows[:]
         
         out_rows = []
         for new_test in new_tests:
             vref_specs = self.add_vref_specs(row, new_test)
-            filename_index = int(new_test["File_Name"].split("-")[1]) * len(vref_specs)
-            out_rows.extend(self.update_rows(vref_specs, new_test, filename_index))
+            out_rows.extend(self.update_rows(vref_specs, new_test))
         new_tests = out_rows[:]
         
         out_rows = []
         for new_test in new_tests:
             qref_specs = self.add_qref_specs(row, new_test)
-            filename_index = int(new_test["File_Name"].split("-")[1]) * len(qref_specs)
-            out_rows.extend(self.update_rows(qref_specs, new_test, filename_index))
+            out_rows.extend(self.update_rows(qref_specs, new_test))
         new_tests = out_rows[:]
         
         out_rows = []
         for new_test in new_tests:
             osc_specs = self.add_osc_specs(row, new_test)
-            filename_index = int(new_test["File_Name"].split("-")[1]) * len(osc_specs)
-            out_rows.extend(self.update_rows(osc_specs, new_test, filename_index))
+            out_rows.extend(self.update_rows(osc_specs, new_test))
         new_tests = out_rows[:]
         
         out_rows = []
         for new_test in new_tests:
             phase_specs = self.add_phase_specs(row, new_tests)
-            filename_index = int(new_test["File_Name"].split("-")[1]) * len(phase_specs)
-            out_rows.extend(self.update_rows(phase_specs, new_test, filename_index))
+            out_rows.extend(self.update_rows(phase_specs, new_test))
         new_tests = out_rows[:]
         
         out_rows = []
         for new_test in new_tests:
             fault_specs = self.add_fault_specs(row, new_test)
-            filename_index = int(new_test["File_Name"].split("-")[1]) * len(fault_specs)
-            out_rows.extend(self.update_rows(fault_specs, new_test, filename_index))
+            out_rows.extend(self.update_rows(fault_specs, new_test))
         new_tests = out_rows[:]
         return new_tests
     
@@ -225,7 +219,7 @@ class SpecGenerator():
                             'Grid_SCR': scr_vals,
                             'Grid_X2R_v': x2r,
                             'Grid_MVA_v': [self.calc_fault_level(scr_val) for scr_val in scr_vals],
-                            'Grid_MVA_t': [0, row["Apply Fault (s)"], row["End Run (s)"]],
+                            'Grid_MVA_t': [0, row["Apply Fault (s)"] + row["Fault Duration (s)"], row["End Run (s)"]],
                         })
                     else:
                         raise CalcSheetError("SCRs")
@@ -354,6 +348,7 @@ class SpecGenerator():
                     else:
                         raise CalcSheetError("wf_state")
                 row_sect.update({'DIR': f'{wf_state.name}_{new_test["DIR"]}'})
+                row_sect.update({'File_Name': f'{wf_state.name}_{new_test["File_Name"]}'})
                 row_sect_list.append(row_sect)
         else:
             raise CalcSheetError("p ref")
@@ -886,7 +881,7 @@ class SpecGenerator():
             return True
         except:
             return False
-        
+            
     def read_scr_and_x2r(self, row_scr: str, row_x2r: str):
         scr_strs = str(row_scr).split("; ")
         x2r_strs = str(row_x2r).split("; ")
@@ -895,31 +890,40 @@ class SpecGenerator():
         poc_x2r = json.loads(self.system_inf.loc["POC XR ratio"]["Var Val"])
         for scr_str in scr_strs:
             for x2r_str in x2r_strs:
+                # get a list of x2r values
+                x2rs = []
+                if x2r_str.isnumeric():
+                    x2rs = [float(x2r_str)]
+                elif x2r_str == "POC":
+                    x2rs = [float(poc_x2r[0]), float(poc_x2r[1])]
+                elif x2r_str == "POC MIN":
+                    x2rs = [float(poc_x2r[0])]
+                elif x2r_str == "POC MAX":
+                    x2rs = [float(poc_x2r[1])]
+                else:
+                    raise CalcSheetError("X2R")
+                # add x2r info to scr info
                 if scr_str.isnumeric():
-                    if x2r_str.isnumeric():
-                        scr_and_x2r.append((float(scr_str), float(x2r_str)))
-                    elif x2r_str == "POC":
-                        scr_and_x2r.append((float(scr_str), float(poc_x2r[0])))
-                        scr_and_x2r.append((float(scr_str), float(poc_x2r[1])))
-                    else:
-                        raise CalcSheetError("X2R")
+                    for x2r in x2rs:
+                        scr_and_x2r.append((float(scr_str), x2r))
                 elif scr_str == "POC":
-                    if x2r_str.isnumeric():
-                        scr_and_x2r.append((float(poc_scr[0]), float(x2r_str)))
-                        scr_and_x2r.append((float(poc_scr[1]), float(x2r_str)))
-                    elif x2r_str == "POC":
-                        scr_and_x2r.append((float(poc_scr[0]), float(poc_x2r[0])))
-                        scr_and_x2r.append((float(poc_scr[1]), float(poc_x2r[1])))
+                    # if both SCR and X/R are POC, then we only add two rows
+                    if x2r_str == "POC":
+                        scr_and_x2r.append((float(poc_scr[0]), x2rs[0]))
+                        scr_and_x2r.append((float(poc_scr[1]), x2rs[1]))
                     else:
-                        raise CalcSheetError("X2R")
+                        for x2r in x2rs:
+                            scr_and_x2r.append((float(poc_scr[0]), x2r))
+                            scr_and_x2r.append((float(poc_scr[1]), x2r))
+                elif scr_str == "POC MIN":
+                    for x2r in x2rs:
+                        scr_and_x2r.append((float(poc_scr[0]), x2r))
+                elif scr_str == "POC MAX":
+                    for x2r in x2rs:
+                        scr_and_x2r.append((float(poc_scr[1]), x2r))
                 elif self.is_list(scr_str):
-                    if x2r_str.isnumeric():
-                        scr_and_x2r.append((scr_str, float(x2r_str)))
-                    elif x2r_str == "POC":
-                        scr_and_x2r.append((scr_str, float(poc_x2r[0])))
-                        scr_and_x2r.append((scr_str, float(poc_x2r[1])))
-                    else:
-                        raise CalcSheetError("X2R")
+                    for x2r in x2rs:
+                        scr_and_x2r.append((scr_str, x2r))
                 else:
                     raise CalcSheetError("SCR")
         return scr_and_x2r
