@@ -169,7 +169,7 @@ if __name__ == '__main__':
     pool = multiprocessing.Pool(processes=2)
     pool.apply_async(process_results_single_thread, [output_spec_path, temp_results_dir, results_dir])
 
-    print(f"Workspace_Path:{workspace_path}")
+    print(f"Workspace_Path: {workspace_path}")
     pscad, project = launch_pscad(workspace_path=workspace_path, project_name=PROJECT_NAME, copy_to_dir=temp_path)
     tuning_df = dataframe_from_gs_csv(tuning_file)
     tuning_dict = tuning_df.set_index('Name ')[' Value '].to_dict()
