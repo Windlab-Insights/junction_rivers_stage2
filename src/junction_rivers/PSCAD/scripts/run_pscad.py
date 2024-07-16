@@ -116,11 +116,13 @@ if __name__ == '__main__':
     if args.results_dir is None:
         print("\nPlease Select Results Directory.")
         results_base_dir = prompt_for_directory_path("Select Output/Results Directory", initial_dir=model_path)
+        results_dir_title = f"{get_date_time_str()}_results"
     else:
         results_base_dir = args.results_dir
+        results_dir_title = ""
     # os.makedirs(results_base_dir)
     
-    results_dir = os.path.join(results_base_dir,f"{get_date_time_str()}_results")
+    results_dir = os.path.join(results_base_dir,results_dir_title)
     print(f"\nResults Directory located at: \n   {results_dir}")
     os.makedirs(results_dir,exist_ok=True)
 
@@ -163,8 +165,13 @@ if __name__ == '__main__':
     temp_results_dir = os.path.join(temp_path, "__temp_results")
     print(f"\nTemp Results Directory located at: \n   {temp_results_dir}")
     
-    output_spec_path = os.path.join(results_dir, "output_spec.csv")
-
+    if args.worker_partition is not None:    
+        output_spec_title = f"output_spec_w{worker_total}-{worker_id}.csv"
+    else:
+        output_spec_title = "output_spec.csv"
+        
+    output_spec_path = os.path.join(results_dir, output_spec_title)
+    
     # ic()
     # pool = multiprocessing.Pool(processes=2)
     # ic()
