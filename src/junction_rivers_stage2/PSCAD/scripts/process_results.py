@@ -6,22 +6,22 @@ import argparse
 import json
 import pandas as pd
 from collections import OrderedDict
-import icecream as ic
+from icecream import ic
 from rengen.plotting.Plotter import Plotter
 from rengen.pscad import Psout
 from rengen.spec.spec import load_specs_from_csv
 from rengen.utils.time_utils import get_date_time_str
 from PyPDF2 import PdfWriter, PdfReader
 
-from junction_rivers.analysis.analysis__csr_s5255_low_voltage_faults import per_scenario_analysis as s5255_low_voltage_fault_analysis
-from junction_rivers.analysis.analysis__csr_s5255_high_voltage_faults import per_scenario_analysis as s5255_high_voltage_fault_analysis
-from junction_rivers.analysis.analysis__csr_s52514_pref_step import s52514_pref_step_analysis
+# from junction_rivers.analysis.analysis__csr_s5255_low_voltage_faults import per_scenario_analysis as s5255_low_voltage_fault_analysis
+# from junction_rivers.analysis.analysis__csr_s5255_high_voltage_faults import per_scenario_analysis as s5255_high_voltage_fault_analysis
+# from junction_rivers.analysis.analysis__csr_s52514_pref_step import s52514_pref_step_analysis
 from rengen.utils.gui_utils import prompt_for_multiple_filepaths, prompt_for_directory_path, std_script_title
-from junction_rivers.analysis.analysis__csr_s5253_s5258_freq_dist import s5253_s5258_freq_dist_analysis
-from junction_rivers.analysis.signal_analysis import get_expected_fdroop_signal, get_expected_vdroop_signal
-from junction_rivers.Analysis import Analysis
+# from junction_rivers.analysis.analysis__csr_s5253_s5258_freq_dist import s5253_s5258_freq_dist_analysis
+# from junction_rivers.analysis.signal_analysis import get_expected_fdroop_signal, get_expected_vdroop_signal
+from junction_rivers_stage2.Analysis import Analysis
 
-from junction_rivers.plotting.JRWFPlotterV2 import JRWFPlotter
+from junction_rivers_stage2.plotting.JRWFStage2PlotterV1 import JRWFStage2Plotter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("process_results")
@@ -36,7 +36,7 @@ def per_scenario_postprocessing(spec_dict: dict, df: pd.DataFrame):
     # df["Qref_droop_Ideal_MVAr"]= get_expected_vdroop_signal(spec_dict, df)
        
     # Per Scenario Analysis Added to JSON File
-    spec_dict["analysis"] = {}
+    # spec_dict["analysis"] = {}
         
     # if "s5255_Fault_Ures" in spec_dict["File_Name"] or "s5255_Fault_Ohms" in spec_dict["File_Name"]:
         
@@ -148,8 +148,8 @@ def process_results_single_thread(
     data_source_extension: str = ".psout",
 ):
     ic()
-    plotter = JRWFPlotter()
-    analysis = Analysis()
+    plotter = JRWFStage2Plotter()
+    # analysis = Analysis()
     pdf_writer = PdfWriter()
     
     spec = None
@@ -277,7 +277,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     logger.info("Started: process_results.py")
-    ic()
+    # ic()
     if args.curr_results_dir is None:
         print("Please Select Current Results Directory:")
         curr_results_dir = prompt_for_directory_path(prompt_title="Select Current Results Dir.", initial_dir="G:\\Junction_Rivers\\JRWF_PSCAD_Models") #os.getcwd())
@@ -296,7 +296,7 @@ if __name__ == '__main__':
     delete_src_data = args.delete_src_data
     data_source_extension = args.data_source
     
-    plotter = JRWFPlotter()
+    plotter = JRWFStage2Plotter()
     analysis = Analysis()
     ic()
     spec = None

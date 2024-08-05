@@ -11,13 +11,14 @@ from rengen.spec.spec import load_specs_from_csv
 from rengen.utils.time_utils import get_date_time_str
 from icecream import ic
 
-from junction_rivers.Analysis import Analysis
-from junction_rivers.plotting.JRWFPlotterV2 import JRWFPlotter
+# from junction_rivers.Analysis import Analysis
+from rengen.utils.gui_utils import prompt_for_multiple_filepaths, prompt_for_directory_path, std_script_title
+from junction_rivers_stage2.plotting.JRWFStage2PlotterV1 import JRWFStage2Plotter
 
 RUN_POST_PROCESSING = False
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("process_results")
+logger = logging.getLogger("process_results_v2")
 logger.setLevel(logging.INFO)
 
 
@@ -72,7 +73,7 @@ def process_results(
             logger.warning("per scenario postprocessing failed")
     
     # Run Plotter Script
-    #logger.info("Plotting Results...")
+    # logger.info("Plotting Results...")
     try:
         plotter.plot_from_df_and_dict(
             df=df,
@@ -81,8 +82,7 @@ def process_results(
             png_path=png_path,
         )
     except Exception as e:
-        ic.enable()
-        ic(e)
+        print(f"---------PLOTTER FAILED WITH EXCEPTION: {e}")
     
     #logger.info("Saving JSON Metadata...")
     with open(json_path, 'w') as json_file:
@@ -105,7 +105,7 @@ def process_results_multi_thread(
     delete_src_data: bool = False,
     data_source_extension: str = ".psout",
 ):
-    plotter = JRWFPlotter()
+    plotter = JRWFStage2Plotter()
 
     spec = None
     if spec_path:
@@ -113,13 +113,15 @@ def process_results_multi_thread(
             time.sleep(30)
             logger.info(f"{spec_path} not found. Waiting 30 seconds...")
 
-        #logger.info(f"{spec_path} found.")
+        logger.info(f"{spec_path} found.")
+        ic(spec_path)
         spec = load_specs_from_csv(spec_path)
+        ic(spec)
 
     # Results directory
     if spec_path is None:
-        results_dir = os.path.join(results_dir, f"{get_date_time_str()}_results")
-    # print(f"\nResults Directory located at: \n   {results_dir}")
+       results_dir = os.path.join(results_dir, f"{get_date_time_str()}_results")
+    print(f"\nResults Directory located at: \n   {results_dir}")
     os.makedirs(results_dir, exist_ok=True)
 
     # Intermetiate temp results directory
@@ -171,8 +173,8 @@ def process_results_multi_thread(
                     ])
                     # ic("________________")
                     for arg in args:
-                        # ic(arg[3])
-                        print("disabled ic")
+                        ic(arg[3])
+                        # print("disabled ic")
                     # Remove study from study list if it was in there.
                     while (relative_path, file_base_name) in study_list:
                         study_list.remove((relative_path, file_base_name))
@@ -217,14 +219,27 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', "--output-spec-path", type=str, default=None)
     parser.add_argument('-t', "--temp-results-dir", type=str, default=None)
-    parser.add_argument('-r', "--results-dir", type=str, default=None)
+    parser.add_argument('-r', "--results-dir", type=str, default=True)
     parser.add_argument('-p', "--processes", type=int, default=1, help="(number of processes for multiprocessing)")
     parser.add_argument('-k', "--secs-to-remove", type=float, default=0, help="(seconds removed from begining of stored pkl)")
     parser.add_argument('-d', "--delete-src-data", type=bool, default=False, help="(1 = delete source data, 0 = keep source data)")
     parser.add_argument('-e', "--data-source", type=str, default=".psout",help="(.out or .pkl)")
     args = parser.parse_args()
 
-    logger.info("Started: process_results.py")
+    logger.info("Started: process_results_v2.py")
+    
+    # TODO: the optional args have a minor bug, but to get it to work for now, use -t and -r and add the paths
+    if args.results_dir is None:
+        print("Please Select New Results Directory:")
+        results_dir = prompt_for_directory_path(prompt_title="Select Results Dir.", initial_dir="G:\\Junction_Rivers\\JRWF_PSCAD_Models") #os.getcwd())
+    else:
+        results_dir = args.results_dir
+    
+    if args.temp_results_dir is None:
+        print("Please Select Results Directory with PSOUT file:")
+        temp_results_dir = prompt_for_directory_path(prompt_title="Select Results Dir. with PSOUT", initial_dir="D:\\Temp") #os.getcwd())
+    else:
+        temp_results_dir = args.temp_results_dir
 
     spec_path = args.output_spec_path    
     temp_results_dir = args.temp_results_dir

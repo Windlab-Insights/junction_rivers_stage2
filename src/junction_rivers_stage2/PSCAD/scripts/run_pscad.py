@@ -4,8 +4,9 @@ import shutil
 import subprocess
 import time
 from multiprocessing import Pool
-from junction_rivers.PSCAD.scripts.process_results_v2 import process_results_single_thread
-from icecream import ic
+# import junction_rivers_stage2
+from junction_rivers_stage2.PSCAD.scripts.process_results_v2 import process_results_single_thread
+from icecream import ic 
 import argparse
 import json
 import pandas as pd
@@ -18,8 +19,8 @@ import tempfile
 from rengen.utils.os_utils import make_temp_directory, file_exists_beneath_directory
 from rengen.utils.time_utils import get_date_time_str
 
-DEFAULT_VOLLEY = 13
-PROJECT_NAME = "JRWF_SMIB"
+DEFAULT_VOLLEY = 1
+PROJECT_NAME = "JRWF_S2_SMIB"
 
 # Custom action class for validation
 class WorkerValidation(argparse.Action):
@@ -83,13 +84,13 @@ if __name__ == '__main__':
     volley_size = args.volley_size
     
     if args.model_path is None:
-        print("Please Select Desired OEM Model Path To Run:")
-        model_path = prompt_for_directory_path(prompt_title="Select Model Path", initial_dir="G:\Junction_Rivers\JRWF_PSCAD_Models")
+        print("Please Select Model Version Folder To Run:")
+        model_path = prompt_for_directory_path(prompt_title="Select Model Path", initial_dir="G:\Junction_Rivers_Stage2\JRWF_S2_PSCAD_Models")
     else: 
         model_path = args.model_path
     
-    workspace_path = os.path.join(model_path, "model/JRWF_SMIB_Workspace.pswx")
-    tuning_file = os.path.join(model_path,"Global_Substitutions/jrwf_gs.csv")
+    workspace_path = os.path.join(model_path,"model/JRWF_S2_SMIB_Workspace.pswx")
+    tuning_file = os.path.join(model_path,"Global_Substitutions/jrwf_s2_gs.csv")
     mapping_file = os.path.join(model_path,"jrwf_testbench_mapping.json")
 
     std_script_title("run_pscad_simulation_script.py")
@@ -184,8 +185,10 @@ if __name__ == '__main__':
     print(f"Workspace_Path: {workspace_path}")
     pscad, project = launch_pscad(workspace_path=workspace_path, project_name=PROJECT_NAME, copy_to_dir=temp_path)
     tuning_df = dataframe_from_gs_csv(tuning_file)
+    ic(tuning_df)
     tuning_dict = tuning_df.set_index('Name ')[' Value '].to_dict()
-    # Create a temporary file
+    ic(tuning_dict)
+    # Create a temporary file  
     with tempfile.NamedTemporaryFile(delete=False, mode='w+') as temp_file:
         # Get the name of the temporary file
         temp_json_tuning_file = temp_file.name
@@ -215,4 +218,5 @@ if __name__ == '__main__':
     print(f"Duration of run = {duration}s, {duration/60}min")
     pool.close()
     pool.join()
+    
     
