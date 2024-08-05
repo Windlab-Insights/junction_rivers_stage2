@@ -428,6 +428,7 @@ class JRWFStage2Plotter(Plotter):
                 time_axis_on=True,
             )
             
+            # TODO: move to page 2 section
             # self.signal_plot(
             #     ax=ax_frequency2,
             #     title='POC: Frequency [Hz]',
