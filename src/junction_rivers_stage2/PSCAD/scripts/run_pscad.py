@@ -19,7 +19,7 @@ import tempfile
 from rengen.utils.os_utils import make_temp_directory, file_exists_beneath_directory
 from rengen.utils.time_utils import get_date_time_str
 
-DEFAULT_VOLLEY = 1
+DEFAULT_VOLLEY = 12
 PROJECT_NAME = "JRWF_S2_SMIB"
 
 # Custom action class for validation
