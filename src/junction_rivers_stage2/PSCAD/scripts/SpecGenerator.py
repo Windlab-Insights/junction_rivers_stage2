@@ -96,7 +96,7 @@ class SpecGenerator():
                         new_row = self.add_new_row(row, category=category_formated)
                         for row in new_row:
                             spec_df = spec_df.append(row, ignore_index=True)        
-        spec_df.to_csv(spec_path)
+        spec_df.to_csv(spec_path, index=False)
         
 ################# ADD PARAMS FOR A TEST ################
     # for rows which have just been added to the new spec sheet, add new information and split into new rows if needed
