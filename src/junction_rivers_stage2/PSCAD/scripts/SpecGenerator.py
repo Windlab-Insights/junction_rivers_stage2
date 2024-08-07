@@ -6,6 +6,8 @@ from icecream import ic
 import random
 from copy import deepcopy
 from enum import Enum
+import os
+from rengen.utils.time_utils import get_date_time_str
 
 class CalcSheetError(Exception):
     def __init__(self):
@@ -18,10 +20,10 @@ class CalcSheetError(Exception):
 class SpecGenerator():
     
     class WfState(Enum):
-     WTG_PZERO = 0
-     BESS_PMAX = 1
-     BESS_PZERO = 2
-     BESS_PMIN = 3
+     BESS_DMAT_WTG_PZERO = 0
+     WTG_DMAT_BESS_PMAX = 1
+     WTG_DMAT_BESS_PZERO = 2
+     WTG_DMAT_BESS_PMIN = 3
     
     HEADERS = [
         'Grouping',
@@ -32,18 +34,14 @@ class SpecGenerator():
         'DIR',
         ]
     
-    def __init__(self, calc_sheet_path, spec_path):
-        self.calc_sheet_path = calc_sheet_path
-        self.spec_generator(calc_sheet_path, spec_path)
-        ic(calc_sheet_path)
-        ic(spec_path)
+    def __init__(self, config_sheet_path, spec_output_dir, suite, run_all_tests):
+        self.spec_generator(config_sheet_path, spec_output_dir, suite, run_all_tests)
         
-    def spec_generator (self, calc_sheet_path, spec_path):
+    def spec_generator (self, config_sheet_path, spec_output_dir, suite, run_all_tests):
+        date_time = get_date_time_str()
         # Read in spec sheet info from the Config sheet as data frames
-        checklist = pd.read_excel(calc_sheet_path, sheet_name="Checklist", index_col="Checklist", header=0)
-        self.system_inf = pd.read_excel(calc_sheet_path, sheet_name="System_inf", index_col="Var name", header=0)
-        self.figure_references = pd.read_excel(calc_sheet_path, sheet_name="Figure References", index_col="Figure", header=0)
-        
+        self.system_inf = pd.read_excel(config_sheet_path, sheet_name="System_inf", index_col="Var name", header=0)
+        ic(self.system_inf)
         # Record project information
         self.v_nom = self.system_inf.loc["POC Base Voltage"]["Var Val"]
         self.f_nom = self.system_inf.loc["Nominal Frequency"]["Var Val"]
@@ -56,11 +54,20 @@ class SpecGenerator():
         self.p_max_bess = self.system_inf.loc["BESS Capacity"]["Var Val"]
         self.qv_droop = self.system_inf.loc["Q-V Droop"]["Var Val"]
         self.software = self.system_inf.loc["Software"]["Var Val"]
-        try:
-            self.suite = self.system_inf.loc["Suite"]["Var Val"]
-        except KeyError:
-            self.suite = "None"
         self.vgrid_change_method = self.system_inf.loc["Vgrid"]["Var Val"]
+        self.seperate_spec_sheets = self.system_inf.loc["Seperate Spec Sheets"]["Var Val"]
+        
+        # if a suite is specified then, access the relevant excel document to access the tests
+        if suite == "csr":
+            calc_sheet_path = self.system_inf.loc["CSR address"]["Var Val"]
+        elif suite == "dmat" or suite == "r_dmat":
+            calc_sheet_path = self.system_inf.loc["DMAT address"]["Var Val"]
+        else:
+            calc_sheet_path = config_sheet_path
+            
+        # Read in info from config sheet
+        checklist = pd.read_excel(calc_sheet_path, sheet_name="Checklist", index_col="Checklist", header=0)
+        self.figure_references = pd.read_excel(calc_sheet_path, sheet_name="Figure References", index_col="Figure", header=0)
         
         # Initialise data frame for the output spec data
         spec_df = pd.DataFrame()
@@ -68,22 +75,17 @@ class SpecGenerator():
         # Iterrate through the categories as recorded in the checklist
         for index_cat, category in checklist.iterrows():
             if category.loc["Action"] == "Yes":
+                ic(category)
+                category_formated = index_cat.lower().replace(" ", "_")
                 tests = pd.read_excel(calc_sheet_path, sheet_name=index_cat, header=0)
-                ic(tests)
                 
                 # Iterate through the tests in the sheet
                 for _, row in tests.iterrows():
+                    run_test = run_all_tests or row["Action"] == "Yes"
                     # Determine if to run the test or not based on the suite selection
-                    if self.suite == "None":
-                        run_test = row["Action"] == "Yes"
-                    elif self.suite == "Reduced_DMAT":
+                    if suite == "r_dmat" and run_test:
+                        ic(row["Suite"] == "Reduced_DMAT")
                         run_test = row["Suite"] == "Reduced_DMAT"
-                    elif self.suite == "DMAT":
-                        run_test = row["Suite"] == "DMAT" or row["Suite"] == "Reduced_DMAT"
-                    elif self.suite == "CSR":
-                        run_test = row["Suite"] == "CSR"
-                    else:
-                        raise CalcSheetError("test suite")
                     # Determine if to run the test based on the software which the test is designed for
                     if self.software == "PSCAD":
                         run_test = run_test and (row["Software"] == "PSCAD" or row["Software"] == "Both")
@@ -92,11 +94,20 @@ class SpecGenerator():
                     # add rows to the spec sheet to actually run the test
                     if run_test:
                         ic(row)
-                        category_formated = index_cat.lower().replace(" ", "_")
                         new_row = self.add_new_row(row, category=category_formated)
                         for row in new_row:
-                            spec_df = spec_df.append(row, ignore_index=True)        
-        spec_df.to_csv(spec_path, index=False)
+                            row.update({'File_Name': f'{row["File_Name"]}_{len(spec_df.index)+2:03d}'})
+                            row.update({'Category': category_formated})
+                            spec_df = spec_df.append(row, ignore_index=True)
+                if self.seperate_spec_sheets:
+                    spec_path = os.path.join(spec_output_dir,f"{date_time}_{category_formated}.csv")
+                    spec_df.to_csv(spec_path, index=False)
+                    ic(spec_path)
+                    spec_df = pd.DataFrame()
+        if not self.seperate_spec_sheets:
+            spec_path = os.path.join(spec_output_dir,f"{date_time}_runner_spec.csv")
+            spec_df.to_csv(spec_path, index=False)
+            ic(spec_path)
         
 ################# ADD PARAMS FOR A TEST ################
     # for rows which have just been added to the new spec sheet, add new information and split into new rows if needed
@@ -106,20 +117,12 @@ class SpecGenerator():
             return [in_row]
         # create a new list of tests
         out_rows = []
-        # get the file name index to ensure unique file names
-        filename = in_row["File_Name"].split("-")
-        if len(filename) == 2:
-            filename_index = int(filename[1]) * len(specs)
-        else: # if there is no existing index then set to zero
-            filename_index = 0
         # for multiple specs, we want to add new tests for each one
         for spec in specs:
             # create a copy of the existing test to update without changing the original one
             temp = deepcopy(in_row)
-            temp.update({'File_Name': f'{filename[0]}-{filename_index}'})
-            filename_index = filename_index + 1
             temp.update(spec)
-            out_rows.append(temp) 
+            out_rows.append(temp)
         return out_rows
     
     # for each test in the config file to be added, add the test information one at a time.
@@ -128,8 +131,9 @@ class SpecGenerator():
         first_test = dict()
         # remove columns where the cell is blank
         row = row.dropna()
-        first_test.update({'File_Name': f'{category}_test_{str(row["Test"]).replace("-","_")}'})
+        first_test.update({'File_Name': row["Test Name"]})
         first_test.update({'DIR': category})
+        first_test.update({'Test_Number': f'{row["Test Name"]}_{row["Test Number"]}'})
         first_test.update({'En_SMIB_init_v': 0})
         new_tests = [first_test]
         
@@ -243,13 +247,13 @@ class SpecGenerator():
             wf_states = []
             for wf_state_str in wf_state_strs:
                 if wf_state_str == "WTG PZERO":
-                    wf_states.append(self.WfState.WTG_PZERO)
+                    wf_states.append(self.WfState.BESS_DMAT_WTG_PZERO)
                 elif wf_state_str == "BESS PMAX":
-                    wf_states.append(self.WfState.BESS_PMAX)
+                    wf_states.append(self.WfState.WTG_DMAT_BESS_PMAX)
                 elif wf_state_str == "BESS PZERO":
-                    wf_states.append(self.WfState.BESS_PZERO)
+                    wf_states.append(self.WfState.WTG_DMAT_BESS_PZERO)
                 elif wf_state_str == "BESS PMIN":
-                    wf_states.append(self.WfState.BESS_PMIN)
+                    wf_states.append(self.WfState.WTG_DMAT_BESS_PMIN)
                 else:
                     raise CalcSheetError("wf state")
         row_sect = dict()
@@ -293,38 +297,33 @@ class SpecGenerator():
             for wf_state in wf_states:
                 
                 # scale the reference by the BESS pmax or WT pmax depending on the state
-                if wf_state == self.WfState.WTG_PZERO:
+                if wf_state == self.WfState.BESS_DMAT_WTG_PZERO:
                     p_base = self.p_max_bess
                 else:
                     p_base = self.p_nom
                 # set a ceiling to ensure we don't go over the maximum P output of the wind farm
-                if wf_state == self.WfState.BESS_PMAX:
+                if wf_state == self.WfState.WTG_DMAT_BESS_PMAX:
                     p_ceil = self.p_nom - self.p_max_bess
                 else:
                     p_ceil = self.p_nom
                 # add profile
                 if 'Time Steps (s)' in row and 'Pref Deltas (pu)' in row:
-                    ic()
                     pref_profile = self.Profile(self.figure_references)
-                    ic()
-                    ic(row["Pref Deltas (pu)"])
-                    ic(row["Time Steps (s)"])
                     pref_profile.read_profile(v_data=row["Pref Deltas (pu)"], t_data=row["Time Steps (s)"])
                     pref_v = ([min((row["Active Power (pu)"] + delta)*p_base, p_ceil) for delta in pref_profile.deltas])
-                    if wf_state == self.WfState.WTG_PZERO:
-                        ic()
+                    if wf_state == self.WfState.BESS_DMAT_WTG_PZERO:
                         row_sect = {'Pref_Wind_MW_v': 0,
                                     'Pref_BESS_MW_v': pref_v,
                                     'Pref_BESS_MW_t': pref_profile.time_steps}
-                    elif wf_state == self.WfState.BESS_PMAX:
+                    elif wf_state == self.WfState.WTG_DMAT_BESS_PMAX:
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': self.p_max_bess,
                                     'Pref_Wind_MW_t': pref_profile.time_steps}
-                    elif wf_state == self.WfState.BESS_PZERO:
+                    elif wf_state == self.WfState.WTG_DMAT_BESS_PZERO:
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': 0,
                                     'Pref_Wind_MW_t': pref_profile.time_steps}
-                    elif wf_state == self.WfState.BESS_PMIN:
+                    elif wf_state == self.WfState.WTG_DMAT_BESS_PMIN:
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': -self.p_max_bess,
                                     'Pref_Wind_MW_t': pref_profile.time_steps}
@@ -333,16 +332,16 @@ class SpecGenerator():
                 # add value
                 else:
                     pref_v = min(row["Active Power (pu)"]*p_base, p_ceil)
-                    if wf_state == self.WfState.WTG_PZERO:
+                    if wf_state == self.WfState.BESS_DMAT_WTG_PZERO:
                         row_sect = {'Pref_Wind_MW_v': 0,
                                     'Pref_BESS_MW_v': pref_v}
-                    elif wf_state == self.WfState.BESS_PMAX:
+                    elif wf_state == self.WfState.WTG_DMAT_BESS_PMAX:
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': self.p_max_bess}
-                    elif wf_state == self.WfState.BESS_PZERO:
+                    elif wf_state == self.WfState.WTG_DMAT_BESS_PZERO:
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': 0}
-                    elif wf_state == self.WfState.BESS_PMIN:
+                    elif wf_state == self.WfState.WTG_DMAT_BESS_PMIN:
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': -self.p_max_bess}
                     else:
@@ -383,7 +382,7 @@ class SpecGenerator():
         if new_test["Infinite_Grid_v"] == 0:
             # if SCR1 FRT test, then use the pre fault SCR
             grid_fault_level = new_test["Grid_MVA_v"][0] if type(new_test["Grid_MVA_v"]) == list else new_test["Grid_MVA_v"]
-            Zs = self.calc_grid_impedence(pu=True, fl=grid_fault_level, x2r=new_test["Grid_X2R_v"])
+            Zs = self.calc_grid_impedence(pu=True, fl=int(grid_fault_level), x2r=new_test["Grid_X2R_v"])
         elif new_test["Infinite_Grid_v"] == 1:
             Zs = None
         # General voltage profile specified
@@ -667,7 +666,7 @@ class SpecGenerator():
                         # '1.15pu)' --> ['1.15', ')']
                         fault_voltage = fault_voltage[2].split("pu")[0]
                         fault_impedance = self.calc_fault_impedance(fault_voltage=float(fault_voltage), fault_distance=1, grid_impedance=grid_impedance)
-                        row_sect = {'TOV_Shunt_uF_v': 1/(fault_impedance * self.f_nom * 2 * math.pi) * 10**6,
+                        row_sect = {'TOV_Shunt_uF_v': 1/(fault_impedance * self.f_nom * 2 * math.pi) * 1e6,
                                     'TOV_Timing_Signal_t': f'[0, {row["Apply Fault (s)"]}, {row["Apply Fault (s)"] + row["Fault Duration (s)"]}]',
                                     'TOV_Timing_Signal_v': f'[0, 1, 0]'}
                         row_sect_list = [row_sect]
@@ -697,11 +696,13 @@ class SpecGenerator():
                         else:
                             row_sect.update({'Zf2Zs_v': self.read_fault_multiplier(row["Fault Impedance (pu)"], Zs=grid_impedance)})
                             row_sect_list.append(row_sect)
+                elif self.is_list(new_test["Grid_MVA_v"]):
+                    pass
                 else: # neither fault impedance or fault voltage are specified.
+                    ic(new_test["Grid_MVA_v"])
                     raise CalcSheetError("fault impedance or fault voltage")
             # multiple fault ride through
             elif fault_duration in ["S1", "S2", "S3", "S4", "S5"]:
-                ic(row["Fault Duration (s)"])
                 row_sect = {'Enable_Fault_Studies_v': 1,
                             'Fault_Strategy_v': 0,}
                 row_sect.update(self.mfrt_seq(row, new_test))
@@ -717,7 +718,7 @@ class SpecGenerator():
 ##################### MFRT GENERATOR #######################
 
     def mfrt_seq(self, row: pd.DataFrame, new_test: dict):
-        random.seed(row["Test"])
+        random.seed(row["Test Number"])
         fault_info = []
         fault_type_options = ["3PHG", "2PHG", "1PHG", "L-L"]
         if row["Fault Duration (s)"] == "S1":
@@ -822,7 +823,6 @@ class SpecGenerator():
         if "[" in str_list[1]:
             str_list[1] = str_list[1].split("[")[0]
             str_list = str_list[0:2]
-            ic(str_list)
         if len(str_list) >= 2 and str_list[0] == "Zf":
             if str_list[1] == "0":
                 # "Zf=0", str_list = [Zf, 0]
@@ -877,17 +877,23 @@ class SpecGenerator():
 ##################### GENERAL CALCULATIONS #######################
     def is_list(self, string: str):
         try:
-            _ = json.loads(string)
+            _ = json.loads(str(string))
             return True
         except:
             return False
             
     def read_scr_and_x2r(self, row_scr: str, row_x2r: str):
+        withstand_scr = self.system_inf.loc["Withstand SCR"]["Var Val"]
+        # check withstand scr is a number
+        if not self.is_number(withstand_scr):
+            raise CalcSheetError("withstand scr")
+        row_scr = str(row_scr).replace("WITHSTAND SCR", str(withstand_scr))
         scr_strs = str(row_scr).split("; ")
         x2r_strs = str(row_x2r).split("; ")
         scr_and_x2r = []
         poc_scr = json.loads(self.system_inf.loc["POC SCR"]["Var Val"])
         poc_x2r = json.loads(self.system_inf.loc["POC XR ratio"]["Var Val"])
+        
         for scr_str in scr_strs:
             for x2r_str in x2r_strs:
                 # get a list of x2r values
@@ -903,7 +909,7 @@ class SpecGenerator():
                 else:
                     raise CalcSheetError("X2R")
                 # add x2r info to scr info
-                if scr_str.isnumeric():
+                if self.is_number(scr_str):
                     for x2r in x2rs:
                         scr_and_x2r.append((float(scr_str), x2r))
                 elif scr_str == "POC":

@@ -16,8 +16,7 @@ import json
     
 if __name__ == '__main__':
     
-    excel_input = "C:\grid_workspace\junction_rivers\src\junction_rivers\PSCAD\scripts\Config_test.xlsx"
-    csv_output_EKS = "G:\Junction_Rivers\JRWF_PSCAD_Models\JRWF_PSCAD_SMIB_EKS_GW\JRWF_PSCAD_SMIB_Stage1_v0.3\specs\\runner_spec.csv"
-    mapping = "G:\Junction_Rivers\JRWF_PSCAD_Models\jrwf_testbench_mapping.json"
+    excel_input = "C:\grid_workspace\junction_rivers_stage2\src\junction_rivers_stage2\PSCAD\scripts\Config_test.xlsx"
+    csv_output_EKS = "G:\Junction_Rivers_Stage2\JRWF_S2_PSCAD_Models\JRWF_S2_PSCAD_GW_EKS_v0.9\specs\\runner_spec.csv"
     spec = SpecGenerator(excel_input, csv_output_EKS)
     
