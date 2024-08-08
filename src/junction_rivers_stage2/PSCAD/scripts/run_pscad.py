@@ -19,7 +19,7 @@ import tempfile
 from rengen.utils.os_utils import make_temp_directory, file_exists_beneath_directory
 from rengen.utils.time_utils import get_date_time_str
 
-DEFAULT_VOLLEY = 12
+DEFAULT_VOLLEY = 1
 PROJECT_NAME = "JRWF_S2_SMIB"
 
 # Custom action class for validation
@@ -196,7 +196,7 @@ if __name__ == '__main__':
         json.dump(tuning_dict, temp_file, indent=4)
         temp_file.flush()
 
-    validate_pscad_model(project=project, json_path=temp_json_tuning_file, behaviour=PscadValidatorBehaviour.OVERWRITE_PSCAD)
+    validate_pscad_model(project=project, json_path=temp_json_tuning_file, behaviour=PscadValidatorBehaviour.WARN)
     os.remove(temp_json_tuning_file)
     # ic()
     run_pscad_spec(
