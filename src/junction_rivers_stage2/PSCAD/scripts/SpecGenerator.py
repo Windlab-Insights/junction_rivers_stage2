@@ -24,6 +24,7 @@ class SpecGenerator():
      WTG_DMAT_BESS_PMAX = 1
      WTG_DMAT_BESS_PZERO = 2
      WTG_DMAT_BESS_PMIN = 3
+     BESS_PNEG_DMAT_WTG_PZERO = 4
     
     HEADERS = [
         'Grouping',
@@ -254,6 +255,8 @@ class SpecGenerator():
                     wf_states.append(self.WfState.WTG_DMAT_BESS_PZERO)
                 elif wf_state_str == "BESS PMIN":
                     wf_states.append(self.WfState.WTG_DMAT_BESS_PMIN)
+                elif wf_state_str == "BESS PNEG": ##### consider what we want this to be called.
+                    wf_states.append(self.WfState.BESS_PNEG_DMAT_WTG_PZERO)
                 else:
                     raise CalcSheetError("wf state")
         row_sect = dict()
@@ -295,9 +298,8 @@ class SpecGenerator():
             row_sect_list = [row_sect]
         elif 'Active Power (pu)' in row:
             for wf_state in wf_states:
-                
                 # scale the reference by the BESS pmax or WT pmax depending on the state
-                if wf_state == self.WfState.BESS_DMAT_WTG_PZERO:
+                if wf_state == self.WfState.BESS_DMAT_WTG_PZERO or wf_state == self.WfState.BESS_PNEG_DMAT_WTG_PZERO:
                     p_base = self.p_max_bess
                 else:
                     p_base = self.p_nom
@@ -327,6 +329,13 @@ class SpecGenerator():
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': -self.p_max_bess,
                                     'Pref_Wind_MW_t': pref_profile.time_steps}
+                    elif wf_state == self.WfState.BESS_PNEG_DMAT_WTG_PZERO:
+                        new_pref_v=[]
+                        for i_pref_v in pref_v:
+                            new_pref_v.append(-1*i_pref_v)
+                        row_sect = {'Pref_Wind_MW_v': 0,
+                                    'Pref_BESS_MW_v': new_pref_v,
+                                    'Pref_BESS_MW_t': pref_profile.time_steps}
                     else:
                         raise CalcSheetError("wf_state")
                 # add value
@@ -344,6 +353,9 @@ class SpecGenerator():
                     elif wf_state == self.WfState.WTG_DMAT_BESS_PMIN:
                         row_sect = {'Pref_Wind_MW_v': pref_v,
                                     'Pref_BESS_MW_v': -self.p_max_bess}
+                    elif wf_state == self.WfState.BESS_PNEG_DMAT_WTG_PZERO:
+                        row_sect = {'Pref_Wind_MW_v': 0,
+                                    'Pref_BESS_MW_v': -1 * pref_v}
                     else:
                         raise CalcSheetError("wf_state")
                 row_sect.update({'DIR': f'{wf_state.name}_{new_test["DIR"]}'})
