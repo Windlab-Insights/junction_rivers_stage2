@@ -142,7 +142,6 @@ class JRWFStage2Plotter(Plotter):
         # Append Optional Tags to Table Data
         for col_name, label in optional_table_information:
             if col_name in spec_dict:
-                print(f"------optional col name: {col_name}")
                 if not str(spec_dict[col_name]) == "nan":
                     default_table_data.append([label, f"{spec_dict[col_name]}"])
 
@@ -301,7 +300,7 @@ class JRWFStage2Plotter(Plotter):
 
                 ic("Unbalanced fault: POC V plotting")
                 # VPOC ABC Phase Voltages
-                poc_vrms_a = df['plt_OC_Va_rms_pu'][self.plot_start:self.plot_end][::DECIMATE]
+                poc_vrms_a = df['plt_POC_Va_rms_pu'][self.plot_start:self.plot_end][::DECIMATE]
                 poc_vrms_b = df['plt_POC_Vb_rms_pu'][self.plot_start:self.plot_end][::DECIMATE]
                 poc_vrms_c = df['plt_POC_Vc_rms_pu'][self.plot_start:self.plot_end][::DECIMATE]
 
@@ -596,34 +595,6 @@ class JRWFStage2Plotter(Plotter):
                 for row in [3, 4, 5]:
                     ax = ax_bess[row]
                     ax.set_ylim(min(ymins), max(ymaxs))
-                    
-                # traces_a = [('BESS', LW_NORM, COL_SIG_2, 4, df['plt_BESS_Va_rms'][self.plot_start:self.plot_end][::DECIMATE]), ]
-                # traces_b = [('BESS', LW_NORM, COL_SIG_2, 4, df['plt_BESS_Vb_rms'][self.plot_start:self.plot_end][::DECIMATE]),]
-                # traces_c = [('BESS', LW_NORM, COL_SIG_2, 4, df['plt_BESS_Vc_rms'][self.plot_start:self.plot_end][::DECIMATE]),]
-
-                # ymins = []
-                # ymaxs = []
-                # for row, phase, traces in zip(
-                #         [3, 4, 5],
-                #         ['A', 'B', 'C'],
-                #         [traces_a, traces_b, traces_c]):
-                #     ax = ax_bess_poi[row]
-
-                #     self.signal_plot(
-                #         ax=ax,
-                #         title='BESS: Phase ' + phase + ' Voltage [.pu]',
-                #         traces=traces,
-                #         min_y_range=0.1,
-                #         time_axis_on=True,
-                #     )
-
-                #     ymin, ymax = ax.get_ylim()
-                #     ymins.append(ymin)
-                #     ymaxs.append(ymax)
-
-                # for row in [3, 4, 5]:
-                #     ax = ax_bess_poi[row]
-                #     ax.set_ylim(min(ymins), max(ymaxs))
 
             # BESS Id Plotting
             ic("BESS Id Plotting")
