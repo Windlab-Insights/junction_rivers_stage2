@@ -113,7 +113,15 @@ if __name__ == '__main__':
         model_temp_dir = args.temp_dir
     temp_path = make_temp_directory(model_temp_dir)
     print(f"\nModel Temp Directory located at: \n   {temp_path}")
+    
+    """ IMPORTANT NOTE:
 
+    If we select a results location in the command line, the results will get populated in that folder WITHOUT A TIMESTAMP
+        - Ideally only use this when running tests across multiple PCs
+    If we select a results location using the GUI, a folder with the timestamp will be created
+        - Use this when testing the model
+    
+    """
     if args.results_dir is None:
         print("\nPlease Select Results Directory.")
         results_base_dir = prompt_for_directory_path("Select Output/Results Directory", initial_dir=model_path)
@@ -121,7 +129,6 @@ if __name__ == '__main__':
     else:
         results_base_dir = args.results_dir
         results_dir_title = ""
-    # os.makedirs(results_base_dir)
     
     results_dir = os.path.join(results_base_dir,results_dir_title)
     print(f"\nResults Directory located at: \n   {results_dir}")
@@ -185,9 +192,7 @@ if __name__ == '__main__':
     print(f"Workspace_Path: {workspace_path}")
     pscad, project = launch_pscad(workspace_path=workspace_path, project_name=PROJECT_NAME, copy_to_dir=temp_path)
     tuning_df = dataframe_from_gs_csv(tuning_file)
-    ic(tuning_df)
     tuning_dict = tuning_df.set_index('Name ')[' Value '].to_dict()
-    ic(tuning_dict)
     # Create a temporary file  
     with tempfile.NamedTemporaryFile(delete=False, mode='w+') as temp_file:
         # Get the name of the temporary file
@@ -196,9 +201,11 @@ if __name__ == '__main__':
         json.dump(tuning_dict, temp_file, indent=4)
         temp_file.flush()
 
-    validate_pscad_model(project=project, json_path=temp_json_tuning_file, behaviour=PscadValidatorBehaviour.OVERWRITE_PSCAD)
+    validate_pscad_model(project=project, json_path=temp_json_tuning_file, behaviour=PscadValidatorBehaviour.OVERWRITE_FILE)
     os.remove(temp_json_tuning_file)
-    # ic()
+    
+    gs_overrides = [""]
+    
     run_pscad_spec(
         pscad=pscad,
         project=project,
@@ -212,10 +219,11 @@ if __name__ == '__main__':
         quit_after=False,
     )
     
+    
     print("Finished Run.")
     time_end = time.time()
     duration = time_end-time_start
-    print(f"Duration of run = {duration}s, {duration/60}min")
+    print(f"Duration of run = {duration} s, {duration/60} min")
     pool.close()
     pool.join()
     
